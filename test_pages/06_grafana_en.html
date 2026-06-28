@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Grafana — Production Overview</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#111217; color:#d8d9da; font-size:15px; }
+  .nav { display:flex; align-items:center; gap:14px; padding:12px 20px;
+         background:#181b1f; border-bottom:1px solid #2c3235; }
+  .logo { width:26px;height:26px;border-radius:50%;
+          background:conic-gradient(#f46800,#fbca3e,#f46800); }
+  .nav .title { font-size:17px; font-weight:600; }
+  .nav .crumb { color:#8e9097; font-size:13px; }
+  .nav .right { margin-left:auto; color:#8e9097; font-size:13px;
+                border:1px solid #2c3235; padding:5px 12px; border-radius:4px; }
+  .bar { padding:8px 20px; background:#141619; color:#8e9097; font-size:13px;
+         border-bottom:1px solid #2c3235; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:16px 20px; }
+  .panel { background:#181b1f; border:1px solid #2c3235; border-radius:4px; padding:12px 14px; }
+  .panel .pt { color:#8e9097; font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
+  .panel .pv { font-size:30px; font-weight:700; margin-top:6px; }
+  .up { color:#73bf69; } .warn { color:#fade2a; } .crit { color:#f2495c; }
+  .wide { grid-column:span 2; }
+  .section { margin:6px 20px 0; font-size:15px; font-weight:600; color:#d8d9da; }
+  .alerts { margin:8px 20px 20px; border:1px solid #2c3235; border-radius:4px; overflow:hidden; }
+  .arow { display:flex; gap:14px; padding:12px 14px; border-bottom:1px solid #23272b;
+          align-items:center; }
+  .arow:last-child { border-bottom:none; }
+  .badge { font-size:12px; font-weight:700; padding:3px 9px; border-radius:3px; }
+  .b-firing { background:#451a1f; color:#f2495c; }
+  .b-pending { background:#42391a; color:#fade2a; }
+  .b-ok { background:#1c3322; color:#73bf69; }
+  .arule { font-weight:600; min-width:230px; }
+  .ameta { color:#8e9097; font-size:13px; }
+  svg { display:block; }
+</style>
+</head>
+<body>
+  <div class="nav">
+    <div class="logo"></div>
+    <span class="title">Grafana</span>
+    <span class="crumb">/ Dashboards / Production Overview</span>
+    <span class="right">⏱ Last 1 hour · Refresh 10s</span>
+  </div>
+  <div class="bar">🏠 Home › Production › Production Overview &nbsp;|&nbsp; Data source: Prometheus-prod &nbsp;|&nbsp; 2026-06-28 10:12:40</div>
+
+  <div class="grid">
+    <div class="panel"><div class="pt">Request Rate</div><div class="pv up">8.4k/s</div></div>
+    <div class="panel"><div class="pt">Error Rate</div><div class="pv crit">12.7%</div></div>
+    <div class="panel"><div class="pt">p99 Latency</div><div class="pv warn">3.91s</div></div>
+    <div class="panel"><div class="pt">Saturation (CPU)</div><div class="pv warn">88%</div></div>
+    <div class="panel wide">
+      <div class="pt">HTTP 5xx — last 60m</div>
+      <svg width="100%" height="70" viewBox="0 0 360 70" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#f2495c" stroke-width="2"
+          points="0,55 30,52 60,48 90,50 120,40 150,30 180,20 210,28 240,15 270,22 300,10 330,18 360,8"/>
+      </svg>
+    </div>
+    <div class="panel wide">
+      <div class="pt">Apdex / Throughput</div>
+      <svg width="100%" height="70" viewBox="0 0 360 70" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#73bf69" stroke-width="2"
+          points="0,20 30,22 60,18 90,25 120,20 150,28 180,24 210,30 240,26 270,34 300,30 330,38 360,33"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="section">🔔 Alert rules — Alerting</div>
+  <div class="alerts">
+    <div class="arow"><span class="badge b-firing">FIRING</span>
+      <span class="arule">HighErrorRate</span>
+      <span class="ameta">job=api-gateway · ERROR ratio 12.7% &gt; 5% for 6m</span></div>
+    <div class="arow"><span class="badge b-firing">FIRING</span>
+      <span class="arule">BatchJobFailed</span>
+      <span class="ameta">Daily Sync Failed — daily_sync exited code 1, last success 8h ago</span></div>
+    <div class="arow"><span class="badge b-firing">FIRING</span>
+      <span class="arule">UpstreamTimeout</span>
+      <span class="ameta">payment-svc → card-processor request TIMEOUT after 30s</span></div>
+    <div class="arow"><span class="badge b-pending">PENDING</span>
+      <span class="arule">DiskSpaceLow</span>
+      <span class="ameta">instance=db-02 · disk 93% (threshold 90%)</span></div>
+    <div class="arow"><span class="badge b-ok">NORMAL</span>
+      <span class="arule">NightlyBackup</span>
+      <span class="ameta">backup job Completed at 03:00, 1.2TB</span></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+data/screenshots/
+data/ocr_results/
+data/*.db
+logs/
+# Local config with real credentials / personal emails — keep out of the repo.
+# Copy config/rules.example.yaml -> config/rules.yaml and fill in your own values.
+config/rules.yaml

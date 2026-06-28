@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Screen Watcher — Test Pages (Pain Points)</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: 'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#0f172a; color:#e2e8f0; }
+  header { padding:28px 40px; background:#1e293b; border-bottom:3px solid #38bdf8; }
+  h1 { margin:0; font-size:26px; }
+  .sub { color:#94a3b8; margin-top:6px; font-size:15px; }
+  main { padding:32px 40px; max-width:1000px; }
+  .card { display:block; text-decoration:none; background:#1e293b; border:1px solid #334155;
+          border-radius:12px; padding:20px 24px; margin-bottom:16px; color:#e2e8f0;
+          transition:.15s; }
+  .card:hover { border-color:#38bdf8; transform:translateY(-2px); }
+  .card h2 { margin:0 0 6px; font-size:19px; }
+  .card p { margin:4px 0; color:#cbd5e1; font-size:14px; }
+  .tags { margin-top:10px; }
+  .tag { display:inline-block; font-size:12px; padding:3px 10px; border-radius:20px;
+         margin-right:6px; background:#334155; color:#fbbf24; }
+  .tag.lang { color:#7dd3fc; }
+  .tag.ok { color:#4ade80; }
+  .note { background:#172554; border-left:4px solid #38bdf8; padding:14px 18px;
+          border-radius:6px; margin-bottom:24px; font-size:14px; line-height:1.6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🖥️ Screen Watcher — Bộ trang test Pain Point</h1>
+  <div class="sub">Mở từng trang trong Chrome hoặc Edge → dùng app chụp & OCR → xem rule khớp và quyết định gửi mail.</div>
+</header>
+<main>
+  <div class="note">
+    <b>Cách dùng:</b> mở 1 trang bên dưới (mở rộng cửa sổ cho rõ chữ), sang app
+    <b>Screen Watcher Pro</b> tích <b>Chrome</b> hoặc <b>Edge</b> rồi bấm <b>Chụp &amp; OCR</b>.
+    Mỗi trang được thiết kế để kích hoạt các rule khác nhau (xem nhãn).
+  </div>
+
+  <a class="card" href="01_ops_dashboard_en.html">
+    <h2>1. Production Ops Console — Incidents (English)</h2>
+    <p>NOC dashboard với sự cố ERROR / FAILED / TIMEOUT, batch "Daily Sync Failed".</p>
+    <div class="tags">
+      <span class="tag lang">English</span>
+      <span class="tag">error_detected</span><span class="tag">daily_sync_failed</span><span class="tag">success_no_alert</span>
+    </div>
+  </a>
+
+  <a class="card" href="02_db_backup_ko.html">
+    <h2>2. 데이터베이스 모니터링 — 백업/복제 (한국어 + English)</h2>
+    <p>Giám sát DB tiếng Hàn trộn từ khóa lỗi tiếng Anh (FAILED / TIMEOUT, Daily Sync Failed).</p>
+    <div class="tags">
+      <span class="tag lang">한국어 + EN</span>
+      <span class="tag">error_detected</span><span class="tag">daily_sync_failed</span>
+    </div>
+  </a>
+
+  <a class="card" href="03_payment_fraud_vi.html">
+    <h2>3. Cổng Thanh toán — Cảnh báo Gian lận (Tiếng Việt)</h2>
+    <p>Dashboard thanh toán tiếng Việt: giao dịch declined, chargeback, fraud, cổng TIMEOUT.</p>
+    <div class="tags">
+      <span class="tag lang">Tiếng Việt</span>
+      <span class="tag">payment_keywords</span><span class="tag">error_detected</span>
+    </div>
+  </a>
+
+  <a class="card" href="04_global_ops_mixed.html">
+    <h2>4. Global Ops — 글로벌 운영 — Vận hành Toàn cầu (MIX 3 ngôn ngữ)</h2>
+    <p>Thử thách OCR tối đa: Việt + Anh + Hàn trộn lẫn, kích hoạt mọi rule.</p>
+    <div class="tags">
+      <span class="tag lang">VI + EN + KO</span>
+      <span class="tag">tất cả rule</span>
+    </div>
+  </a>
+
+  <a class="card" href="05_all_healthy.html">
+    <h2>5. System Health — All Operational / Hoạt động bình thường</h2>
+    <p>Mọi thứ "Completed" / "Thành công" — KHÔNG có rule nào khớp → demo "vì sao KHÔNG gửi mail".</p>
+    <div class="tags">
+      <span class="tag lang">EN + VI</span>
+      <span class="tag ok">không gửi mail</span>
+    </div>
+  </a>
+
+  <h2 style="margin:28px 0 14px;font-size:18px;color:#7dd3fc;">📡 Mô phỏng các tool monitoring phổ biến</h2>
+
+  <a class="card" href="06_grafana_en.html">
+    <h2>6. Grafana — Production Overview (English)</h2>
+    <p>Dashboard time-series + Alert rules (FIRING/PENDING), panel 5xx, Daily Sync Failed.</p>
+    <div class="tags"><span class="tag lang">English</span>
+      <span class="tag">error_detected</span><span class="tag">daily_sync_failed</span></div>
+  </a>
+
+  <a class="card" href="07_datadog_vi.html">
+    <h2>7. Datadog — Monitors / Hệ thống bán hàng (Tiếng Việt)</h2>
+    <p>Danh sách Monitors ALERT/WARN: tỷ lệ lỗi, declined/fraud, đồng bộ thất bại.</p>
+    <div class="tags"><span class="tag lang">Tiếng Việt + EN</span>
+      <span class="tag">error_detected</span><span class="tag">payment_keywords</span></div>
+  </a>
+
+  <a class="card" href="08_alertmanager_ko.html">
+    <h2>8. Prometheus Alertmanager — 발생 중인 경고 (한국어)</h2>
+    <p>Nhóm cảnh báo Firing: HighErrorRate, request TIMEOUT, Daily Sync Failed.</p>
+    <div class="tags"><span class="tag lang">한국어 + EN</span>
+      <span class="tag">error_detected</span><span class="tag">daily_sync_failed</span></div>
+  </a>
+
+  <a class="card" href="09_kibana_mixed.html">
+    <h2>9. Kibana — Logs / Discover (MIX 3 ngôn ngữ)</h2>
+    <p>Bảng log với histogram, document @timestamp; Việt + Anh + Hàn trộn từng dòng.</p>
+    <div class="tags"><span class="tag lang">VI + EN + KO</span>
+      <span class="tag">error_detected</span><span class="tag">daily_sync_failed</span></div>
+  </a>
+
+  <a class="card" href="10_sentry_en.html">
+    <h2>10. Sentry — Issues / Error Tracking (English)</h2>
+    <p>Danh sách issue FATAL/ERROR: OperationalError, RequestTimeout, Daily Sync Failed.</p>
+    <div class="tags"><span class="tag lang">English</span>
+      <span class="tag">error_detected</span><span class="tag">daily_sync_failed</span></div>
+  </a>
+
+  <a class="card" href="11_pagerduty_vi.html">
+    <h2>11. PagerDuty — Incidents / Sự cố đang mở (Tiếng Việt)</h2>
+    <p>Triage incident P1/P2/P3: ERROR hàng loạt, fraud spike, Daily Sync Failed.</p>
+    <div class="tags"><span class="tag lang">Tiếng Việt + EN</span>
+      <span class="tag">error_detected</span><span class="tag">payment_keywords</span></div>
+  </a>
+
+  <a class="card" href="12_cloudwatch_ko.html">
+    <h2>12. AWS CloudWatch — 경보 / Alarms (한국어)</h2>
+    <p>Bảng Alarm In-alarm: 5xx ERROR, Lambda TIMEOUT, daily-sync-job-failed.</p>
+    <div class="tags"><span class="tag lang">한국어 + EN</span>
+      <span class="tag">error_detected</span><span class="tag">daily_sync_failed</span></div>
+  </a>
+</main>
+</body>
+</html>

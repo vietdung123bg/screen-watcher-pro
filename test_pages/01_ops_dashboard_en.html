@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OPS Console — Production Incidents</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#0b1220; color:#e6edf3; font-size:16px; }
+  .top { display:flex; justify-content:space-between; align-items:center;
+         padding:18px 32px; background:#111c33; border-bottom:2px solid #ef4444; }
+  .top h1 { margin:0; font-size:22px; letter-spacing:.3px; }
+  .top .env { background:#7f1d1d; color:#fecaca; padding:5px 14px; border-radius:6px;
+              font-weight:600; font-size:14px; }
+  .clock { color:#94a3b8; font-size:14px; }
+  .cards { display:flex; gap:18px; padding:24px 32px 8px; flex-wrap:wrap; }
+  .metric { background:#0f1b30; border:1px solid #24324a; border-radius:10px;
+            padding:16px 22px; min-width:180px; }
+  .metric .label { color:#94a3b8; font-size:13px; text-transform:uppercase; letter-spacing:.5px; }
+  .metric .val { font-size:30px; font-weight:700; margin-top:4px; }
+  .red { color:#f87171; } .amber { color:#fbbf24; } .green { color:#4ade80; }
+  h2 { margin:22px 32px 10px; font-size:17px; color:#cbd5e1; }
+  table { width:calc(100% - 64px); margin:0 32px; border-collapse:collapse;
+          background:#0f1b30; border-radius:8px; overflow:hidden; }
+  th,td { text-align:left; padding:12px 14px; border-bottom:1px solid #1e293b; font-size:15px; }
+  th { background:#16243d; color:#94a3b8; text-transform:uppercase; font-size:12px; letter-spacing:.5px; }
+  .sev-error { color:#f87171; font-weight:700; }
+  .sev-failed { color:#fb7185; font-weight:700; }
+  .sev-timeout { color:#fbbf24; font-weight:700; }
+  .svc { color:#7dd3fc; font-family:Consolas,monospace; }
+  .logs { margin:14px 32px 32px; background:#05080f; border:1px solid #1e293b;
+          border-radius:8px; padding:16px 18px; font-family:Consolas,monospace;
+          font-size:14px; line-height:1.7; color:#cbd5e1; }
+  .logs .e { color:#f87171; } .logs .w { color:#fbbf24; } .logs .t { color:#fca5a5; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <h1>⚙️ OPS Console — Production Incidents</h1>
+    <span class="env">ENV: PRODUCTION</span>
+    <span class="clock">Last refresh: 2026-06-28 10:06:32 (Asia/Ho_Chi_Minh)</span>
+  </div>
+
+  <div class="cards">
+    <div class="metric"><div class="label">Open Incidents</div><div class="val red">7</div></div>
+    <div class="metric"><div class="label">Error Rate (5m)</div><div class="val red">12.4%</div></div>
+    <div class="metric"><div class="label">API p99 Latency</div><div class="val amber">3,820 ms</div></div>
+    <div class="metric"><div class="label">Healthy Nodes</div><div class="val green">18 / 24</div></div>
+  </div>
+
+  <h2>Active Incidents</h2>
+  <table>
+    <tr><th>Time</th><th>Service</th><th>Status</th><th>Message</th></tr>
+    <tr><td>10:02:14</td><td class="svc">api-gateway</td><td class="sev-error">ERROR</td>
+        <td>Connection refused to upstream auth-service (HTTP 502)</td></tr>
+    <tr><td>10:03:01</td><td class="svc">batch-runner</td><td class="sev-failed">FAILED</td>
+        <td>Daily Sync Failed — job "daily_sync" exited with code 1</td></tr>
+    <tr><td>10:05:47</td><td class="svc">payment-svc</td><td class="sev-timeout">TIMEOUT</td>
+        <td>Request timed out after 30000ms calling card-processor</td></tr>
+    <tr><td>10:05:58</td><td class="svc">inventory-api</td><td class="sev-error">ERROR</td>
+        <td>NullPointerException at OrderHandler.process line 142</td></tr>
+    <tr><td>10:06:10</td><td class="svc">notification-worker</td><td class="sev-timeout">TIMEOUT</td>
+        <td>SMTP connection timed out to mailrelay.internal</td></tr>
+  </table>
+
+  <h2>Live Log Stream — /var/log/app/production.log</h2>
+  <div class="logs">
+    <div>[10:02:14] <span class="e">ERROR</span> api-gateway: upstream connection refused (502)</div>
+    <div>[10:03:01] <span class="e">ERROR</span> batch-runner: Daily Sync Failed after 3 retries</div>
+    <div>[10:03:02] <span class="w">WARN </span> batch-runner: rescheduling daily_sync to 11:00</div>
+    <div>[10:05:47] <span class="t">TIMEOUT</span> payment-svc: card-processor did not respond in 30s</div>
+    <div>[10:05:58] <span class="e">ERROR</span> inventory-api: unhandled exception, request aborted</div>
+    <div>[10:06:10] <span class="t">TIMEOUT</span> notification-worker: SMTP relay unreachable</div>
+    <div>[10:06:31] <span class="w">WARN </span> autoscaler: scaling up node pool (cpu 91%)</div>
+  </div>
+</body>
+</html>

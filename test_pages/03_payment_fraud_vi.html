@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Cổng Thanh toán — Cảnh báo Giao dịch & Gian lận</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#0d1117; color:#e6edf3; font-size:16px; }
+  header { padding:20px 32px; background:#161b22; border-bottom:2px solid #db2777; }
+  header h1 { margin:0; font-size:22px; }
+  header .meta { color:#8b949e; font-size:14px; margin-top:6px; }
+  .cards { display:flex; gap:18px; padding:24px 32px 8px; flex-wrap:wrap; }
+  .c { background:#11161d; border:1px solid #283039; border-radius:10px;
+       padding:16px 22px; min-width:190px; }
+  .c .t { color:#8b949e; font-size:13px; }
+  .c .v { font-size:28px; font-weight:700; margin-top:4px; }
+  .danger { color:#ff7b72; } .warn { color:#f0b429; } .ok { color:#56d364; }
+  h2 { margin:22px 32px 10px; font-size:17px; color:#cbd5e1; }
+  table { width:calc(100% - 64px); margin:0 32px; border-collapse:collapse;
+          background:#11161d; border-radius:8px; overflow:hidden; }
+  th,td { text-align:left; padding:12px 14px; border-bottom:1px solid #21262d; font-size:15px; }
+  th { background:#1c2128; color:#8b949e; font-size:13px; }
+  .txn { color:#79c0ff; font-family:Consolas,monospace; }
+  .b-declined { color:#ff7b72; font-weight:700; }
+  .b-fraud { color:#ff7b72; font-weight:700; }
+  .b-chargeback { color:#f0b429; font-weight:700; }
+  .b-ok { color:#56d364; font-weight:700; }
+  .panel { margin:14px 32px 32px; background:#080a0d; border:1px solid #21262d;
+           border-radius:8px; padding:16px 18px; font-size:15px; line-height:1.8; }
+  .panel b { color:#ff7b72; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>💳 Cổng Thanh toán — Cảnh báo Giao dịch &amp; Gian lận</h1>
+    <div class="meta">Hệ thống: payment-gateway-vn · Cập nhật: 28/06/2026 10:08 · Bộ phận phụ trách: Đội Tài chính &amp; Rủi ro</div>
+  </header>
+
+  <div class="cards">
+    <div class="c"><div class="t">Giao dịch bị từ chối (declined)</div><div class="v danger">38</div></div>
+    <div class="c"><div class="t">Cảnh báo gian lận (fraud)</div><div class="v danger">5</div></div>
+    <div class="c"><div class="t">Yêu cầu hoàn tiền (chargeback)</div><div class="v warn">12</div></div>
+    <div class="c"><div class="t">Tỷ lệ thành công</div><div class="v ok">94,2%</div></div>
+  </div>
+
+  <h2>Giao dịch nghi ngờ — cần xử lý gấp</h2>
+  <table>
+    <tr><th>Thời gian</th><th>Mã giao dịch</th><th>Số tiền</th><th>Trạng thái</th><th>Chi tiết</th></tr>
+    <tr><td>10:01:22</td><td class="txn">TXN-88213</td><td>12.500.000 ₫</td><td class="b-declined">declined</td>
+        <td>Thẻ bị từ chối — ngân hàng phát hành báo "insufficient funds"</td></tr>
+    <tr><td>10:02:47</td><td class="txn">TXN-88240</td><td>4.990.000 ₫</td><td class="b-fraud">fraud</td>
+        <td>Phát hiện gian lận: thẻ dùng từ 3 quốc gia khác nhau trong 5 phút</td></tr>
+    <tr><td>10:03:55</td><td class="txn">TXN-88255</td><td>28.000.000 ₫</td><td class="b-chargeback">chargeback</td>
+        <td>Khách hàng mở yêu cầu hoàn tiền (chargeback) cho đơn hàng đã giao</td></tr>
+    <tr><td>10:04:30</td><td class="txn">TXN-88261</td><td>1.200.000 ₫</td><td class="b-declined">declined</td>
+        <td>Giao dịch bị từ chối do nghi ngờ gian lận, tạm khóa thẻ</td></tr>
+    <tr><td>10:05:12</td><td class="txn">TXN-88279</td><td>9.750.000 ₫</td><td class="b-ok">Completed</td>
+        <td>Thanh toán thành công, đã đối soát (Completed)</td></tr>
+  </table>
+
+  <h2>Nhật ký cổng thanh toán</h2>
+  <div class="panel">
+    <div>[10:02:47] <b>FRAUD ALERT</b> — TXN-88240 bị đánh dấu gian lận, đã chặn tự động</div>
+    <div>[10:03:10] <b>TIMEOUT</b> — cổng card-processor không phản hồi sau 30 giây, giao dịch treo</div>
+    <div>[10:03:55] CHARGEBACK — nhận thông báo bồi hoàn từ Visa cho TXN-88255</div>
+    <div>[10:04:30] declined — tỷ lệ từ chối tăng bất thường, nghi ngờ tấn công thử thẻ (card testing)</div>
+    <div>[10:06:00] Cảnh báo: cần đội Tài chính kiểm tra ngay các giao dịch fraud nêu trên</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>PagerDuty — Incidents / Sự cố đang mở</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#f4f5f7; color:#1b1f23; font-size:15px; }
+  .nav { background:#06ac38; color:#fff; padding:12px 22px; display:flex; align-items:center; gap:16px; }
+  .nav b { font-size:17px; } .nav span.m { margin-left:auto; font-size:13px; opacity:.9; }
+  .nav a { color:#dcffe6; text-decoration:none; font-size:14px; }
+  .wrap { padding:18px 22px; }
+  .stat { display:flex; gap:12px; margin-bottom:16px; }
+  .box { background:#fff; border:1px solid #e1e4e8; border-radius:8px; padding:12px 18px; min-width:130px; }
+  .box .l { color:#6b7280; font-size:12px; } .box .n { font-size:24px; font-weight:700; margin-top:3px; }
+  .triggered { color:#cf222e; } .ack { color:#bf8700; } .resolved { color:#1a7f37; }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid #e1e4e8; border-radius:8px; overflow:hidden; }
+  th { text-align:left; background:#f0f2f4; color:#57606a; font-size:12px; text-transform:uppercase;
+       letter-spacing:.4px; padding:10px 14px; }
+  td { padding:13px 14px; border-top:1px solid #eef0f2; font-size:14px; vertical-align:top; }
+  .urg { font-size:11px; font-weight:700; padding:3px 9px; border-radius:3px; white-space:nowrap; }
+  .u-high { background:#ffebe9; color:#cf222e; } .u-low { background:#fff8c5; color:#9a6700; }
+  .st { font-size:12px; font-weight:600; }
+  .st-trig { color:#cf222e; } .st-ack { color:#bf8700; }
+  .ititle { font-weight:600; }
+  .svc { color:#0969da; font-family:Consolas,monospace; font-size:13px; }
+  .who { color:#6b7280; font-size:13px; }
+</style>
+</head>
+<body>
+  <div class="nav"><b>📟 PagerDuty</b>
+    <a>Incidents</a><a>Services</a><a>On-Call</a>
+    <span class="m">Đội trực: SRE-VN · 2026-06-28 10:16 (GMT+7)</span>
+  </div>
+  <div class="wrap">
+    <div class="stat">
+      <div class="box"><div class="l">Triggered</div><div class="n triggered">5</div></div>
+      <div class="box"><div class="l">Acknowledged</div><div class="n ack">3</div></div>
+      <div class="box"><div class="l">Resolved (24h)</div><div class="n resolved">41</div></div>
+      <div class="box"><div class="l">High Urgency</div><div class="n triggered">4</div></div>
+    </div>
+
+    <table>
+      <tr><th>Urgency</th><th>Trạng thái</th><th>Sự cố (Incident)</th><th>Dịch vụ</th><th>Phụ trách</th></tr>
+      <tr>
+        <td><span class="urg u-high">HIGH</span></td>
+        <td><span class="st st-trig">● Triggered</span></td>
+        <td><div class="ititle">[P1] Cổng thanh toán trả về ERROR hàng loạt</div>
+            <div class="who">Tỷ lệ HTTP 500 = 14%, khách không đặt hàng được</div></td>
+        <td class="svc">checkout-api</td>
+        <td class="who">Nguyễn Văn A</td>
+      </tr>
+      <tr>
+        <td><span class="urg u-high">HIGH</span></td>
+        <td><span class="st st-trig">● Triggered</span></td>
+        <td><div class="ititle">[P1] Phát hiện gian lận thanh toán — fraud spike</div>
+            <div class="who">Nhiều giao dịch declined nghi ngờ fraud, đội Tài chính cần vào ngay</div></td>
+        <td class="svc">payment-svc</td>
+        <td class="who">Trần Thị B</td>
+      </tr>
+      <tr>
+        <td><span class="urg u-high">HIGH</span></td>
+        <td><span class="st st-ack">● Acknowledged</span></td>
+        <td><div class="ititle">[P2] Đồng bộ dữ liệu ban đêm thất bại</div>
+            <div class="who">Daily Sync Failed lúc 02:00 — job daily_sync exited code 1</div></td>
+        <td class="svc">inventory-sync</td>
+        <td class="who">Lê Văn C</td>
+      </tr>
+      <tr>
+        <td><span class="urg u-low">LOW</span></td>
+        <td><span class="st st-trig">● Triggered</span></td>
+        <td><div class="ititle">[P3] Độ trễ API cao — sắp TIMEOUT</div>
+            <div class="who">card-gateway p99 = 4.7s, ngưỡng TIMEOUT 5s</div></td>
+        <td class="svc">card-gateway</td>
+        <td class="who">—</td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

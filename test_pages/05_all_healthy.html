@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>System Health — All Systems Operational</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#0c1411; color:#e3f2e8; font-size:16px; }
+  header { padding:20px 32px; background:#10231a; border-bottom:2px solid #22c55e; }
+  header h1 { margin:0; font-size:22px; }
+  header .meta { color:#86b59a; font-size:14px; margin-top:6px; }
+  .cards { display:flex; gap:18px; padding:24px 32px 8px; flex-wrap:wrap; }
+  .c { background:#10231a; border:1px solid #1f3b2c; border-radius:10px;
+       padding:16px 22px; min-width:190px; }
+  .c .t { color:#86b59a; font-size:13px; }
+  .c .v { font-size:28px; font-weight:700; margin-top:4px; color:#4ade80; }
+  h2 { margin:22px 32px 10px; font-size:17px; color:#bbf7d0; }
+  table { width:calc(100% - 64px); margin:0 32px; border-collapse:collapse;
+          background:#10231a; border-radius:8px; overflow:hidden; }
+  th,td { text-align:left; padding:12px 14px; border-bottom:1px solid #1f3b2c; font-size:15px; }
+  th { background:#15301f; color:#86b59a; font-size:13px; }
+  .ok { color:#4ade80; font-weight:700; }
+  .job { color:#7dd3fc; font-family:Consolas,monospace; }
+  .panel { margin:14px 32px 32px; background:#08120d; border:1px solid #1f3b2c;
+           border-radius:8px; padding:16px 18px; font-size:15px; line-height:1.8; }
+  .panel b { color:#4ade80; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>✅ System Health — All Systems Operational</h1>
+    <div class="meta">Tất cả dịch vụ hoạt động bình thường · 2026-06-28 10:10 · Trạng thái: Healthy</div>
+  </header>
+
+  <div class="cards">
+    <div class="c"><div class="t">Open Incidents</div><div class="v">0</div></div>
+    <div class="c"><div class="t">Uptime (30d)</div><div class="v">99,98%</div></div>
+    <div class="c"><div class="t">Healthy Nodes</div><div class="v">24 / 24</div></div>
+    <div class="c"><div class="t">Tỷ lệ thành công</div><div class="v">100%</div></div>
+  </div>
+
+  <h2>Job Status — Trạng thái tác vụ</h2>
+  <table>
+    <tr><th>Time</th><th>Job</th><th>Status</th><th>Message</th></tr>
+    <tr><td>23:00</td><td class="job">nightly_backup</td><td class="ok">Completed</td>
+        <td>Sao lưu ban đêm hoàn tất thành công (backup Completed)</td></tr>
+    <tr><td>23:15</td><td class="job">daily_sync</td><td class="ok">Completed</td>
+        <td>Daily Sync Completed — đồng bộ dữ liệu thành công, không có sai lệch</td></tr>
+    <tr><td>00:10</td><td class="job">index_rebuild</td><td class="ok">Completed</td>
+        <td>Tái tạo chỉ mục hoàn tất (rebuild Completed successfully)</td></tr>
+    <tr><td>01:00</td><td class="job">health_check</td><td class="ok">Completed</td>
+        <td>Kiểm tra sức khỏe hệ thống: tất cả OK, mọi dịch vụ bình thường</td></tr>
+  </table>
+
+  <h2>Activity Log — Nhật ký hoạt động</h2>
+  <div class="panel">
+    <div>[23:00:30] <b>OK</b> nightly_backup: hoàn tất, 1.2TB đã sao lưu (Completed)</div>
+    <div>[23:15:40] <b>OK</b> daily_sync: Daily Sync Completed, 0 conflicts</div>
+    <div>[06:00:00] <b>OK</b> morning_report: báo cáo sáng đã gửi, mọi chỉ số xanh</div>
+    <div>[10:10:00] Tất cả hệ thống hoạt động bình thường — không có cảnh báo nào.</div>
+  </div>
+</body>
+</html>

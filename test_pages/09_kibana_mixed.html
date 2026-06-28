@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kibana — Logs / Discover (log-prod-*)</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#1d1e24; color:#dfe5ef; font-size:14px; }
+  .nav { display:flex; align-items:center; gap:14px; padding:10px 18px;
+         background:#16171c; border-bottom:1px solid #343741; }
+  .k { width:22px;height:22px;border-radius:5px;
+       background:linear-gradient(135deg,#f04e98,#00bfb3); }
+  .nav b { font-size:16px; } .nav .crumb { color:#98a2b3; font-size:13px; }
+  .nav .idx { margin-left:auto; font-size:13px; color:#00bfb3; font-family:Consolas,monospace; }
+  .search { display:flex; gap:8px; padding:10px 18px; background:#25262e; border-bottom:1px solid #343741; }
+  .qbox { flex:1; background:#1d1e24; border:1px solid #404452; border-radius:5px;
+          padding:7px 12px; color:#dfe5ef; font-family:Consolas,monospace; font-size:13px; }
+  .time { background:#343741; border-radius:5px; padding:7px 12px; font-size:13px; color:#cbd1dc; }
+  .hist { padding:12px 18px 4px; }
+  .hist .lbl { color:#98a2b3; font-size:12px; margin-bottom:6px; }
+  .bars { display:flex; align-items:flex-end; gap:3px; height:60px; }
+  .bars span { flex:1; background:#4a6ee0; border-radius:2px 2px 0 0; }
+  .bars span.e { background:#f04e98; }
+  .count { padding:6px 18px; color:#98a2b3; font-size:13px; }
+  table { width:calc(100% - 36px); margin:0 18px 20px; border-collapse:collapse; }
+  th { text-align:left; color:#98a2b3; font-size:12px; padding:8px 10px; border-bottom:1px solid #343741; }
+  td { padding:9px 10px; border-bottom:1px solid #2a2b33; font-size:13px; vertical-align:top;
+       font-family:Consolas,monospace; }
+  .ts { color:#7d8694; white-space:nowrap; }
+  .lvl-error { color:#fa6e9a; font-weight:700; }
+  .lvl-warn { color:#f5c14e; font-weight:700; }
+  .lvl-info { color:#6bd3c9; font-weight:700; }
+  .msg { color:#dfe5ef; }
+  .fld { color:#9aa4f2; }
+</style>
+</head>
+<body>
+  <div class="nav">
+    <div class="k"></div><b>Kibana</b>
+    <span class="crumb">/ Analytics / Discover</span>
+    <span class="idx">log-prod-*</span>
+  </div>
+  <div class="search">
+    <div class="qbox">level: ("error" or "warn") and message: ("ERROR" or "FAILED" or "TIMEOUT")</div>
+    <div class="time">🕒 Last 15 minutes</div>
+  </div>
+  <div class="hist">
+    <div class="lbl">📊 5,128 hits — log-prod-* · @timestamp per 30s</div>
+    <div class="bars">
+      <span style="height:20%"></span><span style="height:35%"></span><span class="e" style="height:60%"></span>
+      <span style="height:45%"></span><span class="e" style="height:80%"></span><span style="height:55%"></span>
+      <span class="e" style="height:95%"></span><span style="height:40%"></span><span style="height:70%"></span>
+      <span class="e" style="height:85%"></span><span style="height:50%"></span><span style="height:65%"></span>
+    </div>
+  </div>
+  <div class="count">Documents (12 / 5,128) — sorted by @timestamp desc</div>
+
+  <table>
+    <tr><th>Time</th><th>level</th><th>service</th><th>message</th></tr>
+    <tr><td class="ts">10:14:58.221</td><td class="lvl-error">ERROR</td><td class="fld">auth-svc</td>
+        <td class="msg">인증 실패 급증 — authentication ERROR, 토큰 검증 실패 (invalid signature)</td></tr>
+    <tr><td class="ts">10:14:55.880</td><td class="lvl-error">ERROR</td><td class="fld">inventory-sync</td>
+        <td class="msg">Daily Sync Failed — đồng bộ kho VN thất bại, rollback transaction</td></tr>
+    <tr><td class="ts">10:14:51.402</td><td class="lvl-warn">WARN</td><td class="fld">payment-gw</td>
+        <td class="msg">card-processor 응답 지연, 곧 TIMEOUT 예상 (p99=4.8s)</td></tr>
+    <tr><td class="ts">10:14:47.119</td><td class="lvl-error">ERROR</td><td class="fld">payment-gw</td>
+        <td class="msg">Upstream request TIMEOUT after 30000ms — giao dịch bị treo</td></tr>
+    <tr><td class="ts">10:14:42.008</td><td class="lvl-error">ERROR</td><td class="fld">order-api</td>
+        <td class="msg">주문 처리 중 예외 발생 — NullPointerException at OrderHandler:142</td></tr>
+    <tr><td class="ts">10:14:30.551</td><td class="lvl-info">INFO</td><td class="fld">backup</td>
+        <td class="msg">nightly backup Completed — 1.2TB, 백업 정상 완료</td></tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,237 @@
+"""Repository: CRUD cho user/role/permission, screenshot và OCR."""
+
+from __future__ import annotations
+
+import sqlite3
+from datetime import datetime
+from typing import Any
+
+from app.db.database import Database
+
+
+def _now() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+class Repository:
+    def __init__(self, db: Database):
+        self.db = db
+
+    # ---------- helpers ----------
+    def _exec(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        with self.db.lock:
+            cur = self.db.conn.execute(sql, params)
+            self.db.conn.commit()
+            return cur
+
+    def _query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+        with self.db.lock:
+            return self.db.conn.execute(sql, params).fetchall()
+
+    def _query_one(self, sql: str, params: tuple = ()) -> sqlite3.Row | None:
+        with self.db.lock:
+            return self.db.conn.execute(sql, params).fetchone()
+
+    # ---------- roles & permissions ----------
+    def list_roles(self) -> list[sqlite3.Row]:
+        return self._query("SELECT * FROM roles ORDER BY name")
+
+    def get_role_by_name(self, name: str) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM roles WHERE name = ?", (name,))
+
+    def get_permissions_for_role(self, role_id: int) -> list[str]:
+        rows = self._query(
+            "SELECT p.code FROM permissions p "
+            "JOIN role_permissions rp ON rp.permission_id = p.id "
+            "WHERE rp.role_id = ?",
+            (role_id,),
+        )
+        return [r["code"] for r in rows]
+
+    # ---------- users ----------
+    def get_user_by_username(self, username: str) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM users WHERE username = ?", (username,))
+
+    def get_user(self, user_id: int) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM users WHERE id = ?", (user_id,))
+
+    def list_users(self) -> list[sqlite3.Row]:
+        return self._query(
+            "SELECT u.*, r.name AS role_name FROM users u "
+            "LEFT JOIN roles r ON r.id = u.role_id ORDER BY u.username"
+        )
+
+    def create_user(self, username: str, password_hash: str, salt: str,
+                    full_name: str, role_id: int) -> int:
+        cur = self._exec(
+            "INSERT INTO users(username, password_hash, salt, full_name, role_id, "
+            "is_active, created_at) VALUES(?, ?, ?, ?, ?, 1, ?)",
+            (username, password_hash, salt, full_name, role_id, _now()),
+        )
+        return cur.lastrowid
+
+    def update_user_role(self, user_id: int, role_id: int) -> None:
+        self._exec("UPDATE users SET role_id = ? WHERE id = ?", (role_id, user_id))
+
+    def update_user_password(self, user_id: int, password_hash: str, salt: str) -> None:
+        self._exec(
+            "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?",
+            (password_hash, salt, user_id),
+        )
+
+    def set_user_active(self, user_id: int, active: bool) -> None:
+        self._exec("UPDATE users SET is_active = ? WHERE id = ?", (1 if active else 0, user_id))
+
+    def delete_user(self, user_id: int) -> None:
+        self._exec("DELETE FROM users WHERE id = ?", (user_id,))
+
+    # ---------- capture sessions ----------
+    def create_session(self, user_id: int, targets: str, note: str = "") -> int:
+        cur = self._exec(
+            "INSERT INTO capture_sessions(user_id, targets, note, created_at) "
+            "VALUES(?, ?, ?, ?)",
+            (user_id, targets, note, _now()),
+        )
+        return cur.lastrowid
+
+    # ---------- screenshots ----------
+    def create_screenshot(self, session_id: int | None, user_id: int, target_app: str,
+                          window_title: str | None, file_path: str | None,
+                          width: int | None, height: int | None,
+                          status: str, error: str | None = None) -> int:
+        cur = self._exec(
+            "INSERT INTO screenshots(session_id, user_id, target_app, window_title, "
+            "file_path, width, height, status, error, captured_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (session_id, user_id, target_app, window_title, file_path,
+             width, height, status, error, _now()),
+        )
+        return cur.lastrowid
+
+    def list_screenshots(self, user_id: int | None = None) -> list[sqlite3.Row]:
+        """user_id=None -> tất cả (cần quyền view_all); ngược lại lọc theo user."""
+        sql = (
+            "SELECT s.*, u.username, o.char_count, o.id AS ocr_id "
+            "FROM screenshots s "
+            "LEFT JOIN users u ON u.id = s.user_id "
+            "LEFT JOIN ocr_results o ON o.screenshot_id = s.id "
+        )
+        params: tuple = ()
+        if user_id is not None:
+            sql += "WHERE s.user_id = ? "
+            params = (user_id,)
+        sql += "ORDER BY s.id DESC"
+        return self._query(sql, params)
+
+    def get_screenshot(self, screenshot_id: int) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM screenshots WHERE id = ?", (screenshot_id,))
+
+    # ---------- OCR ----------
+    def create_ocr(self, screenshot_id: int, model: str, text: str,
+                   char_count: int, duration_ms: int) -> int:
+        cur = self._exec(
+            "INSERT INTO ocr_results(screenshot_id, model, text, char_count, "
+            "duration_ms, created_at) VALUES(?, ?, ?, ?, ?, ?)",
+            (screenshot_id, model, text, char_count, duration_ms, _now()),
+        )
+        return cur.lastrowid
+
+    def get_ocr_for_screenshot(self, screenshot_id: int) -> sqlite3.Row | None:
+        return self._query_one(
+            "SELECT * FROM ocr_results WHERE screenshot_id = ? ORDER BY id DESC LIMIT 1",
+            (screenshot_id,),
+        )
+
+    # ---------- audit ----------
+    def add_audit(self, user_id: int | None, action: str, detail: str = "") -> None:
+        self._exec(
+            "INSERT INTO audit_logs(user_id, action, detail, created_at) VALUES(?, ?, ?, ?)",
+            (user_id, action, detail, _now()),
+        )
+
+    # ---------- rule evaluations ----------
+    def create_rule_evaluation(self, screenshot_id: int, rule_id: str, rule_name: str,
+                               rule_type: str, matched: int, severity: str,
+                               owner_group: str, reason: str, matched_terms: str) -> int:
+        cur = self._exec(
+            "INSERT INTO rule_evaluations(screenshot_id, rule_id, rule_name, rule_type, "
+            "matched, severity, owner_group, reason, matched_terms, created_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (screenshot_id, rule_id, rule_name, rule_type, matched, severity,
+             owner_group, reason, matched_terms, _now()),
+        )
+        return cur.lastrowid
+
+    def list_rule_evaluations(self, screenshot_id: int) -> list[sqlite3.Row]:
+        return self._query(
+            "SELECT * FROM rule_evaluations WHERE screenshot_id = ? ORDER BY id",
+            (screenshot_id,),
+        )
+
+    # ---------- notifications ----------
+    def create_notification(self, screenshot_id: int, rule_id: str, owner_group: str,
+                            recipients: str, status: str, reason: str,
+                            subject: str = "", body: str = "") -> int:
+        cur = self._exec(
+            "INSERT INTO notifications(screenshot_id, rule_id, owner_group, recipients, "
+            "status, reason, subject, body, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (screenshot_id, rule_id, owner_group, recipients, status, reason,
+             subject, body, _now()),
+        )
+        return cur.lastrowid
+
+    def list_notifications(self, screenshot_id: int) -> list[sqlite3.Row]:
+        return self._query(
+            "SELECT * FROM notifications WHERE screenshot_id = ? ORDER BY id",
+            (screenshot_id,),
+        )
+
+    def list_emails(self, user_id: int | None = None,
+                    screenshot_ids: list[int] | None = None) -> list[sqlite3.Row]:
+        """Các email đã gửi / mô phỏng / thất bại (có nội dung), kèm thông tin screenshot.
+
+        user_id=None -> tất cả; ngược lại chỉ email của screenshot do user đó chụp.
+        screenshot_ids -> chỉ lấy email của các screenshot này (dùng cho tab con sau khi chụp).
+        """
+        sql = (
+            "SELECT n.*, s.user_id AS s_user_id, s.target_app, s.window_title, "
+            "       s.captured_at, u.username "
+            "FROM notifications n "
+            "JOIN screenshots s ON s.id = n.screenshot_id "
+            "LEFT JOIN users u ON u.id = s.user_id "
+            "WHERE n.status IN ('sent', 'simulated', 'send_failed') "
+        )
+        params: list = []
+        if user_id is not None:
+            sql += "AND s.user_id = ? "
+            params.append(user_id)
+        if screenshot_ids:
+            placeholders = ",".join("?" * len(screenshot_ids))
+            sql += f"AND n.screenshot_id IN ({placeholders}) "
+            params.extend(screenshot_ids)
+        sql += "ORDER BY n.id DESC"
+        return self._query(sql, tuple(params))
+
+    def get_notification(self, notif_id: int) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM notifications WHERE id = ?", (notif_id,))
+
+    # ---------- cooldown ----------
+    def get_cooldown(self, rule_id: str):
+        """Trả về datetime lần gửi gần nhất, hoặc None."""
+        row = self._query_one(
+            "SELECT last_sent_at FROM cooldown_state WHERE rule_id = ?", (rule_id,)
+        )
+        if row is None:
+            return None
+        try:
+            return datetime.fromisoformat(row["last_sent_at"])
+        except (ValueError, TypeError):
+            return None
+
+    def set_cooldown(self, rule_id: str, owner_group: str, when: datetime) -> None:
+        self._exec(
+            "INSERT INTO cooldown_state(rule_id, owner_group, last_sent_at) VALUES(?, ?, ?) "
+            "ON CONFLICT(rule_id) DO UPDATE SET owner_group=excluded.owner_group, "
+            "last_sent_at=excluded.last_sent_at",
+            (rule_id, owner_group, when.isoformat(timespec="seconds")),
+        )

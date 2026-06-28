@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sentry — Issues (javascript-react / backend-python)</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#1a1525; color:#e7e1ee; font-size:14px; }
+  .nav { display:flex; align-items:center; gap:14px; padding:11px 20px;
+         background:#2b1d44; border-bottom:1px solid #3b2c57; }
+  .s { width:22px;height:22px;border-radius:50%;
+       background:radial-gradient(circle at 30% 30%,#ff7738,#e1567c); }
+  .nav b { font-size:16px; } .nav .crumb { color:#a695c4; font-size:13px; }
+  .nav .proj { margin-left:auto; font-size:13px; color:#a695c4; }
+  .tabs { display:flex; gap:18px; padding:9px 20px; background:#221833;
+          border-bottom:1px solid #3b2c57; font-size:14px; color:#a695c4; }
+  .tabs .on { color:#fff; border-bottom:2px solid #e1567c; padding-bottom:7px; }
+  .q { margin:14px 20px; background:#221833; border:1px solid #3b2c57; border-radius:6px;
+       padding:8px 12px; font-family:Consolas,monospace; font-size:13px; color:#c9bce0; }
+  .hrow { display:flex; padding:8px 20px; color:#a695c4; font-size:12px; text-transform:uppercase;
+          letter-spacing:.4px; border-bottom:1px solid #3b2c57; }
+  .hrow .grow { flex:1; }
+  .issue { display:flex; align-items:center; padding:13px 20px; border-bottom:1px solid #2b2240; gap:12px; }
+  .issue .grow { flex:1; }
+  .lvl { font-size:11px; font-weight:700; padding:2px 8px; border-radius:3px; }
+  .l-error { background:#3d1422; color:#ff6b8a; }
+  .l-fatal { background:#42121a; color:#ff5470; }
+  .etitle { font-weight:600; font-family:Consolas,monospace; color:#ffd5dd; }
+  .emeta { color:#a695c4; font-size:13px; margin-top:3px; }
+  .num { width:70px; text-align:right; font-variant-numeric:tabular-nums; }
+  .num b { font-size:16px; } .num span { color:#a695c4; font-size:12px; }
+</style>
+</head>
+<body>
+  <div class="nav">
+    <div class="s"></div><b>Sentry</b>
+    <span class="crumb">/ Issues</span>
+    <span class="proj">project: backend-python · env: production · 2026-06-28 10:15</span>
+  </div>
+  <div class="tabs"><span class="on">Unresolved (24)</span><span>For Review</span><span>Regressed</span><span>Ignored</span></div>
+  <div class="q">is:unresolved level:[error,fatal] timesSeen:&gt;100 — sort: events</div>
+
+  <div class="hrow"><span class="grow">Issue</span><span class="num">Events</span><span class="num">Users</span></div>
+
+  <div class="issue">
+    <span class="lvl l-fatal">FATAL</span>
+    <div class="grow">
+      <div class="etitle">OperationalError: connection to database FAILED</div>
+      <div class="emeta">backend-python · psycopg2 · /api/checkout · ERROR — could not connect to server</div>
+    </div>
+    <div class="num"><b>3.2k</b><br><span>events</span></div>
+    <div class="num"><b>812</b><br><span>users</span></div>
+  </div>
+
+  <div class="issue">
+    <span class="lvl l-error">ERROR</span>
+    <div class="grow">
+      <div class="etitle">RequestTimeout: upstream did not respond (TIMEOUT)</div>
+      <div class="emeta">payment-service · /charge · request TIMEOUT after 30000ms</div>
+    </div>
+    <div class="num"><b>1.8k</b><br><span>events</span></div>
+    <div class="num"><b>540</b><br><span>users</span></div>
+  </div>
+
+  <div class="issue">
+    <span class="lvl l-error">ERROR</span>
+    <div class="grow">
+      <div class="etitle">CronJobError: Daily Sync Failed</div>
+      <div class="emeta">worker · task daily_sync · exited code 1 · ERROR syncing inventory</div>
+    </div>
+    <div class="num"><b>96</b><br><span>events</span></div>
+    <div class="num"><b>1</b><br><span>users</span></div>
+  </div>
+
+  <div class="issue">
+    <span class="lvl l-error">ERROR</span>
+    <div class="grow">
+      <div class="etitle">TypeError: cannot read properties of undefined (reading 'id')</div>
+      <div class="emeta">javascript-react · CartView.tsx:88 · ERROR rendering checkout summary</div>
+    </div>
+    <div class="num"><b>742</b><br><span>events</span></div>
+    <div class="num"><b>310</b><br><span>users</span></div>
+  </div>
+</body>
+</html>

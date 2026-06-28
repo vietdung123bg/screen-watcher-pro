@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>데이터베이스 모니터링 — 백업 및 복제 상태</title>
+<style>
+  body { font-family:'Malgun Gothic','Segoe UI',Arial,sans-serif; margin:0;
+         background:#101418; color:#e8eaed; font-size:16px; }
+  header { padding:20px 32px; background:#1b2127; border-bottom:2px solid #f59e0b; }
+  header h1 { margin:0; font-size:22px; }
+  header .meta { color:#9aa0a6; font-size:14px; margin-top:6px; }
+  .grid { display:flex; gap:18px; padding:24px 32px 8px; flex-wrap:wrap; }
+  .kpi { background:#1a2026; border:1px solid #2c343d; border-radius:10px;
+         padding:16px 22px; min-width:200px; }
+  .kpi .t { color:#9aa0a6; font-size:13px; }
+  .kpi .v { font-size:28px; font-weight:700; margin-top:4px; }
+  .bad { color:#f28b82; } .warn { color:#fdd663; } .good { color:#81c995; }
+  h2 { margin:22px 32px 10px; font-size:17px; color:#cbd5e1; }
+  table { width:calc(100% - 64px); margin:0 32px; border-collapse:collapse;
+          background:#1a2026; border-radius:8px; overflow:hidden; }
+  th,td { text-align:left; padding:12px 14px; border-bottom:1px solid #2c343d; font-size:15px; }
+  th { background:#222a31; color:#9aa0a6; font-size:13px; }
+  .status-fail { color:#f28b82; font-weight:700; }
+  .status-timeout { color:#fdd663; font-weight:700; }
+  .status-ok { color:#81c995; font-weight:700; }
+  .job { color:#8ab4f8; font-family:Consolas,monospace; }
+  .panel { margin:14px 32px 32px; background:#0b0e11; border:1px solid #2c343d;
+           border-radius:8px; padding:16px 18px; font-size:15px; line-height:1.8; }
+  .panel b { color:#f28b82; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🗄️ 데이터베이스 모니터링 — 백업 및 복제 상태</h1>
+    <div class="meta">클러스터: prod-db-seoul-01 · 마지막 갱신: 2026-06-28 10:07 (KST) · 담당: DBA 운영팀</div>
+  </header>
+
+  <div class="grid">
+    <div class="kpi"><div class="t">야간 백업 (Backup)</div><div class="v bad">실패 / FAILED</div></div>
+    <div class="kpi"><div class="t">복제 지연 (Replication Lag)</div><div class="v warn">842 초</div></div>
+    <div class="kpi"><div class="t">디스크 사용량</div><div class="v warn">93%</div></div>
+    <div class="kpi"><div class="t">활성 연결 (Connections)</div><div class="v good">1,204</div></div>
+  </div>
+
+  <h2>작업 상태 — Job Status</h2>
+  <table>
+    <tr><th>시간 (Time)</th><th>작업 (Job)</th><th>상태 (Status)</th><th>메시지 (Message)</th></tr>
+    <tr><td>23:00</td><td class="job">nightly_backup</td><td class="status-fail">FAILED</td>
+        <td>야간 백업 작업이 실패했습니다. 디스크 공간 부족 (No space left on device)</td></tr>
+    <tr><td>23:15</td><td class="job">daily_sync</td><td class="status-fail">FAILED</td>
+        <td>Daily Sync Failed — 원격 복제본과 동기화 중 오류 발생</td></tr>
+    <tr><td>23:42</td><td class="job">replica_health</td><td class="status-timeout">TIMEOUT</td>
+        <td>복제 서버 응답 없음, 30초 후 시간 초과 (connection TIMEOUT)</td></tr>
+    <tr><td>00:10</td><td class="job">index_rebuild</td><td class="status-ok">정상 / Completed</td>
+        <td>인덱스 재구성 완료 (rebuild completed successfully)</td></tr>
+    <tr><td>01:00</td><td class="job">vacuum_analyze</td><td class="status-ok">정상 / Completed</td>
+        <td>VACUUM ANALYZE 정상 처리 완료</td></tr>
+  </table>
+
+  <h2>경고 로그 — Alert Log</h2>
+  <div class="panel">
+    <div>[23:00:04] <b>FAILED</b> nightly_backup: 백업 대상 1.2TB 중 0.4TB 에서 중단됨</div>
+    <div>[23:15:21] <b>FAILED</b> daily_sync: Daily Sync Failed (재시도 3회 모두 실패)</div>
+    <div>[23:42:09] <b>TIMEOUT</b> replica-2: 마스터로부터 WAL 수신 시간 초과</div>
+    <div>[23:55:00] 경고: 복제 지연이 임계치(600초)를 초과했습니다 — 즉시 확인 필요</div>
+  </div>
+</body>
+</html>

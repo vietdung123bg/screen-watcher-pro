@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Datadog — Monitors / Cảnh báo Hệ thống Bán hàng</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#1c1d26; color:#e6e6ec; font-size:15px; }
+  .top { display:flex; align-items:center; gap:12px; padding:12px 20px;
+         background:#2a2152; border-bottom:1px solid #3a2f6b; }
+  .dog { width:24px;height:24px;background:#774aa4;border-radius:6px;
+         display:flex;align-items:center;justify-content:center;font-size:15px; }
+  .top .t { font-weight:700; font-size:16px; }
+  .top .crumb { color:#b6b3d6; font-size:13px; }
+  .top .env { margin-left:auto; font-size:13px; color:#b6b3d6; }
+  .filters { display:flex; gap:8px; padding:10px 20px; background:#23242f;
+             border-bottom:1px solid #32333f; font-size:13px; color:#9b9cae; }
+  .chip { background:#2d2e3a; padding:4px 11px; border-radius:14px; }
+  .chip.active { background:#632ca6; color:#fff; }
+  .summary { display:flex; gap:14px; padding:16px 20px; }
+  .s { background:#23242f; border:1px solid #32333f; border-radius:8px;
+       padding:12px 20px; min-width:140px; }
+  .s .l { color:#9b9cae; font-size:12px; } .s .n { font-size:26px; font-weight:700; margin-top:3px; }
+  .alert { color:#e93f5a; } .warnc { color:#f4a52b; } .okc { color:#4cc98f; }
+  h2 { margin:8px 20px; font-size:15px; }
+  .mon { margin:0 20px 20px; border:1px solid #32333f; border-radius:8px; overflow:hidden; }
+  .m { display:flex; gap:14px; padding:13px 16px; border-bottom:1px solid #2a2b35; align-items:center; }
+  .m:last-child { border-bottom:none; }
+  .st { font-size:11px; font-weight:700; padding:3px 9px; border-radius:3px; white-space:nowrap; }
+  .st-alert { background:#3d1620; color:#e93f5a; }
+  .st-warn { background:#3a2a12; color:#f4a52b; }
+  .st-ok { background:#15301f; color:#4cc98f; }
+  .mname { font-weight:600; min-width:260px; }
+  .mmeta { color:#9b9cae; font-size:13px; }
+  .host { color:#a98eda; font-family:Consolas,monospace; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="dog">🐶</div>
+    <span class="t">Datadog</span>
+    <span class="crumb">/ Monitors / Manage Monitors</span>
+    <span class="env">env:production · service:checkout · 2026-06-28 10:13</span>
+  </div>
+  <div class="filters">
+    <span class="chip active">Triggered</span><span class="chip">Alert</span>
+    <span class="chip">Warn</span><span class="chip">No Data</span>
+    <span class="chip">team:thanh-toan</span><span class="chip">VN region</span>
+  </div>
+
+  <div class="summary">
+    <div class="s"><div class="l">Alert</div><div class="n alert">6</div></div>
+    <div class="s"><div class="l">Warn</div><div class="n warnc">9</div></div>
+    <div class="s"><div class="l">OK</div><div class="n okc">142</div></div>
+    <div class="s"><div class="l">No Data</div><div class="n">3</div></div>
+  </div>
+
+  <h2>Monitors đang kích hoạt — Triggered Monitors</h2>
+  <div class="mon">
+    <div class="m"><span class="st st-alert">ALERT</span>
+      <span class="mname">[Checkout] Tỷ lệ lỗi cao</span>
+      <span class="mmeta"><span class="host">checkout-api</span> · ERROR rate 14% — nhiều request trả về HTTP 500</span></div>
+    <div class="m"><span class="st st-alert">ALERT</span>
+      <span class="mname">[Payment] Giao dịch bị từ chối</span>
+      <span class="mmeta"><span class="host">payment-svc</span> · tỷ lệ declined tăng đột biến, nghi ngờ fraud</span></div>
+    <div class="m"><span class="st st-alert">ALERT</span>
+      <span class="mname">[Sync] Đồng bộ tồn kho thất bại</span>
+      <span class="mmeta"><span class="host">inventory-sync</span> · Daily Sync Failed lúc 02:00, dữ liệu lệch</span></div>
+    <div class="m"><span class="st st-warn">WARN</span>
+      <span class="mname">[Latency] Độ trễ thanh toán</span>
+      <span class="mmeta"><span class="host">card-gateway</span> · p95 = 4.2s, gần ngưỡng TIMEOUT 5s</span></div>
+    <div class="m"><span class="st st-ok">OK</span>
+      <span class="mname">[Backup] Sao lưu hằng ngày</span>
+      <span class="mmeta"><span class="host">db-vn-01</span> · backup Completed lúc 03:00</span></div>
+  </div>
+</body>
+</html>

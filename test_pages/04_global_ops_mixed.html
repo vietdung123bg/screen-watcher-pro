@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Global Operations · 글로벌 운영 · Vận hành Toàn cầu</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif; margin:0;
+         background:#0a0e1a; color:#e2e8f0; font-size:15px; }
+  header { padding:18px 28px; background:#131a2c; border-bottom:2px solid #818cf8; }
+  header h1 { margin:0; font-size:21px; }
+  header .meta { color:#94a3b8; font-size:13px; margin-top:5px; }
+  .cols { display:flex; gap:16px; padding:22px 28px; align-items:flex-start; flex-wrap:wrap; }
+  .col { flex:1; min-width:300px; background:#111728; border:1px solid #283249;
+         border-radius:10px; overflow:hidden; }
+  .col h2 { margin:0; padding:14px 18px; font-size:16px; background:#1a2238;
+            border-bottom:1px solid #283249; }
+  .flag { font-size:13px; color:#94a3b8; font-weight:400; }
+  .row { padding:11px 18px; border-bottom:1px solid #1c2436; line-height:1.5; }
+  .row:last-child { border-bottom:none; }
+  .lvl { font-weight:700; font-family:Consolas,monospace; }
+  .err { color:#f87171; } .timeout { color:#fbbf24; } .fail { color:#fb7185; }
+  .fraud { color:#f472b6; } .ok { color:#4ade80; }
+  .t { color:#64748b; font-family:Consolas,monospace; margin-right:6px; }
+  .ticker { margin:0 28px 28px; background:#05070d; border:1px solid #283249;
+            border-radius:8px; padding:14px 18px; font-family:Consolas,monospace;
+            font-size:14px; line-height:1.9; }
+  .ticker .err { color:#f87171; } .ticker .timeout { color:#fbbf24; }
+  .ticker .fraud { color:#f472b6; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🌐 Global Operations · 글로벌 운영 · Vận hành Toàn cầu</h1>
+    <div class="meta">NOC 24/7 · 2026-06-28 10:09 UTC+7 · Regions: VN / KR / Global · On-call: SRE Team</div>
+  </header>
+
+  <div class="cols">
+    <!-- Vietnam -->
+    <div class="col">
+      <h2>🇻🇳 Việt Nam <span class="flag">— Trung tâm dữ liệu Hà Nội</span></h2>
+      <div class="row"><span class="t">10:01</span><span class="lvl err">ERROR</span> —
+        Dịch vụ đặt hàng gặp lỗi, không kết nối được tới cơ sở dữ liệu chính.</div>
+      <div class="row"><span class="t">10:02</span><span class="lvl fraud">fraud</span> —
+        Phát hiện giao dịch gian lận trên cổng thanh toán, đã tạm khóa.</div>
+      <div class="row"><span class="t">10:03</span><span class="lvl fail">FAILED</span> —
+        Daily Sync Failed: đồng bộ dữ liệu kho hàng ban đêm thất bại.</div>
+      <div class="row"><span class="t">10:04</span><span class="lvl ok">Completed</span> —
+        Sao lưu cấu hình hoàn tất thành công.</div>
+    </div>
+
+    <!-- Korea -->
+    <div class="col">
+      <h2>🇰🇷 한국 <span class="flag">— 서울 리전 (Seoul Region)</span></h2>
+      <div class="row"><span class="t">10:01</span><span class="lvl timeout">TIMEOUT</span> —
+        결제 시스템이 30초 내에 응답하지 않았습니다. (payment gateway no response)</div>
+      <div class="row"><span class="t">10:02</span><span class="lvl fraud">fraud</span> —
+        이상 거래 탐지: 단시간 내 다국가 카드 사용, 사기 의심 (declined).</div>
+      <div class="row"><span class="t">10:03</span><span class="lvl err">ERROR</span> —
+        인증 서버 오류로 로그인 실패가 급증하고 있습니다.</div>
+      <div class="row"><span class="t">10:05</span><span class="lvl ok">정상 / Completed</span> —
+        야간 배치 작업 정상 완료.</div>
+    </div>
+
+    <!-- Global -->
+    <div class="col">
+      <h2>🌎 Global <span class="flag">— US-East / EU-West</span></h2>
+      <div class="row"><span class="t">10:00</span><span class="lvl fail">FAILED</span> —
+        Daily Sync Failed across 3 regions, replication halted.</div>
+      <div class="row"><span class="t">10:02</span><span class="lvl err">ERROR</span> —
+        CDN edge returned HTTP 503 for 8% of requests.</div>
+      <div class="row"><span class="t">10:04</span><span class="lvl timeout">TIMEOUT</span> —
+        Database failover exceeded 60s threshold, manual intervention required.</div>
+      <div class="row"><span class="t">10:06</span><span class="lvl fraud">chargeback</span> —
+        Spike in chargeback disputes flagged by risk engine.</div>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div>[10:00:11] <span class="fail">FAILED</span> global-sync: Daily Sync Failed — replication lag &gt; 900s</div>
+    <div>[10:01:35] <span class="timeout">TIMEOUT</span> kr-payments: 결제 응답 시간 초과 (30s)</div>
+    <div>[10:02:02] <span class="fraud">FRAUD</span> vn-pay: giao dịch gian lận bị từ chối (declined)</div>
+    <div>[10:02:48] <span class="err">ERROR</span> kr-auth: 인증 서버 오류 — login failure rate 41%</div>
+    <div>[10:04:19] <span class="timeout">TIMEOUT</span> global-db: failover &gt; 60s, escalation paged to SRE</div>
+  </div>
+</body>
+</html>

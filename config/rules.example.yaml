@@ -1,0 +1,61 @@
+# =====================================================================
+# EXAMPLE config — copy to config/rules.yaml and fill in your own values.
+#   PowerShell:  Copy-Item config/rules.example.yaml config/rules.yaml
+# rules.yaml is gitignored (it holds your real sender login + emails).
+# =====================================================================
+
+# ---- Rule definitions ----
+# type: contains | not_contains | regex | all_keywords | any_keywords
+rules:
+  - id: error_detected
+    name: "Error detected (ERROR/FAILED/TIMEOUT)"
+    type: regex
+    pattern: "(ERROR|FAILED|TIMEOUT)"
+    ignore_case: true
+    severity: high
+    owner_group: ops_team
+    cooldown_minutes: 15
+
+  - id: daily_sync_failed
+    name: "Daily Sync failed"
+    type: all_keywords
+    keywords: ["Daily", "Sync", "Failed"]
+    ignore_case: true
+    severity: medium
+    owner_group: ops_team
+    cooldown_minutes: 30
+
+  - id: payment_keywords
+    name: "Payment / fraud alert"
+    type: any_keywords
+    keywords: ["declined", "chargeback", "fraud"]
+    ignore_case: true
+    severity: high
+    owner_group: finance_team
+    cooldown_minutes: 20
+
+# ---- Owner groups & recipient emails (NOT verified in Brevo, change freely) ----
+owners:
+  ops_team:
+    emails:
+      - owner@example.com
+  finance_team:
+    emails:
+      - finance-owner@example.com
+
+# ---- Email (SMTP) configuration ----
+# enabled: false -> DRY-RUN (simulate only, safe default). true -> send for real.
+# See README section 5.1 for setting up Brevo as the SMTP relay.
+email:
+  enabled: false
+  provider: custom                       # gmail | outlook | office365 | custom (Brevo/SendGrid)
+  smtp_host: smtp-relay.brevo.com
+  smtp_port: 587
+  use_tls: true
+  username: YOUR_SMTP_LOGIN@smtp-brevo.com   # SMTP login (NOT the password)
+  from: your-verified-sender@example.com     # must be a VERIFIED sender
+  password_env: WATCHER_SMTP_PASSWORD        # the SMTP key/password lives in .env
+
+# ---- Default cooldown ----
+cooldown:
+  default_minutes: 15

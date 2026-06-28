@@ -1,0 +1,362 @@
+# Screen Watcher Pro — Desktop App
+
+Ứng dụng **desktop (Windows)** giám sát thông tin hiển thị trên màn hình theo đúng
+luồng nghiệp vụ trong tài liệu *Screen Watcher*:
+
+> **Chụp cửa sổ (Chrome/Edge) → OCR (Qwen3-VL) → Rule Engine → Cooldown → Email cảnh báo**
+
+Điểm khác biệt so với bản cơ bản: sau khi OCR, app **đánh giá rule trong file YAML**,
+**chống spam bằng cooldown**, **gửi email cho owner**, và có **một phần giao diện
+giải thích chi tiết VÌ SAO gửi / KHÔNG gửi email** cho từng rule.
+
+Phần chụp màn hình + OCR **tái sử dụng từ `main_qwen_ocr.py`** (tìm cửa sổ thật,
+foreground bằng AttachThreadInput + minimize/restore, chụp bbox DPI-aware,
+OCR Việt/Anh/Hàn qua Qwen3-VL trên OpenRouter).
+
+Pain point được giải quyết (theo tài liệu): **P01** (thông tin chỉ trên màn hình),
+**P02** (kiểm tra thủ công), **P03** (không có cảnh báo tự động), **P04** (không có
+bằng chứng kiểm tra).
+
+---
+
+## 1. Chức năng
+
+### Cho người dùng
+- **Chọn 1 trình duyệt**: **Chrome** hoặc **Edge** (radio — chỉ chọn 1 tại một thời điểm).
+- **Tìm cửa sổ theo tiến trình** (`chrome.exe` / `msedge.exe`) — chính xác kể cả khi
+  trình duyệt mở nhiều tab (mất hậu tố tiêu đề) hoặc đang minimize.
+- **Tự mở app nếu chưa chạy** (tùy chọn launch).
+- **OCR đa ngôn ngữ** (Việt + Anh + Hàn).
+- **Xem kết quả ngay trong tab Chụp** — khu vực kết quả là Notebook 5 tab:
+  **📝 Nhật ký · 🖼 Ảnh chụp (preview) · 📄 Kết quả OCR · ✉ Giải thích gửi email ·
+  📧 Email đã gửi** (email gửi ở chính lần chụp này).
+  Chụp xong app tự nhảy sang tab *Ảnh chụp*. (Tab *Lịch sử* vẫn xem lại được mọi lần chụp.)
+- **Preview ảnh có zoom**: nút ➖/➕/⤢, cuộn chuột để zoom, kéo để di chuyển;
+  **nháy đúp (hoặc nút 🔍)** mở ảnh trong **cửa sổ riêng** cũng có zoom in/out + pan.
+  Áp dụng cho cả tab *Chụp* lẫn tab *Lịch sử*.
+- **Đánh giá rule + gửi email tự động** sau khi OCR.
+- **Gửi email THẬT** qua SMTP với preset provider **Gmail / Outlook / Office 365**
+  (vd `owner@example.com`). Đính kèm ảnh screenshot. Xem mục 5 để cấu hình.
+- **Gửi thử (Send test email)**: tab **⚙ Rules & Email** có ô nhập địa chỉ + nút
+  *✉ Send test email* — ép gửi thật để kiểm tra SMTP (kể cả khi đang DRY-RUN).
+- **Xem email đã gửi**: ở **2 nơi** — tab cấp cao **📧 Sent Emails** (tất cả email theo
+  quyền) và **tab con trong Capture & OCR** (chỉ email của lần chụp vừa rồi). Chọn 1 dòng để
+  xem **toàn bộ nội dung** (tiêu đề, người nhận, lý do, body) — nội dung lưu trong DB.
+- **Gửi lại email (resend)**: nút *✉ Resend* trong danh sách email — gửi lại thủ công
+  (bỏ qua cooldown). Chạy được cả khi gửi thật lẫn DRY-RUN; chỉ hiện với tài khoản có quyền `capture.run`.
+- **Bảng giải thích chi tiết** ("Vì sao gửi / KHÔNG gửi email"):
+  với mỗi rule ghi rõ *có khớp không → vì sao → hành động (gửi/cooldown/...) → vì sao → người nhận*.
+- Chạy **nền không treo UI** (thread + progress bar + nhật ký).
+
+### Rule Engine (đọc `config/rules.yaml`)
+5 loại rule giống tài liệu:
+
+| Loại | Ý nghĩa |
+|------|---------|
+| `contains` | text CÓ chứa `value` |
+| `not_contains` | text KHÔNG chứa `value` (kích hoạt khi vắng mặt) |
+| `regex` | `pattern` khớp bất kỳ đâu |
+| `all_keywords` | có ĐỦ tất cả `keywords` |
+| `any_keywords` | có ÍT NHẤT MỘT `keywords` |
+
+### Cooldown & Email (Business Rule trong tài liệu)
+- **BR03**: rule khớp + có owner + hết cooldown → gửi email.
+- **BR04**: rule khớp nhưng còn cooldown → KHÔNG gửi lại (giải thích còn bao lâu).
+- **BR05**: OCR rỗng → ghi cảnh báo, không đánh giá rule, không gửi.
+- **BR06**: SMTP lỗi → ghi nhận `send_failed`, giữ cooldown để thử lại.
+- **DRY-RUN**: đặt `email.enabled: false` trong YAML để **mô phỏng** gửi (an toàn khi demo) — vẫn ghi quyết định + cập nhật cooldown.
+
+### Quản trị (admin)
+- Quản lý người dùng: thêm, đổi vai trò, reset mật khẩu, bật/tắt, xóa.
+- Tab **⚙ Rules & Email**: xem rule đang nạp + trạng thái cấu hình email + gửi thử email.
+
+### Phân quyền (RBAC)
+
+| Vai trò | Quyền |
+|---------|-------|
+| **admin** | toàn quyền (gồm xem dữ liệu mọi người + quản lý user) |
+| **operator** | `capture.run`, `screenshot.view`, `ocr.view`, `rule.view` |
+| **viewer** | `screenshot.view`, `ocr.view`, `rule.view` (chỉ xem) |
+
+| Mã quyền | Ý nghĩa |
+|----------|---------|
+| `capture.run` | Chụp màn hình và chạy OCR |
+| `screenshot.view` / `screenshot.view_all` | Xem screenshot của mình / của mọi người |
+| `ocr.view` | Xem OCR text |
+| `rule.view` | Xem rule, kết quả đánh giá, quyết định gửi email |
+| `user.manage` | Quản lý người dùng & phân quyền |
+
+---
+
+## 2. Cấu trúc dự án
+
+```
+screen-watcher-pro/
+├── run.py                          # Entry point — nạp config + DB + UI
+├── requirements.txt
+├── .env.example                    # OPENROUTER_API_KEY + WATCHER_SMTP_PASSWORD
+├── config/
+│   ├── rules.example.yaml          # mẫu cấu hình (commit lên repo)
+│   └── rules.yaml                  # ★ cấu hình thật (gitignored) — copy từ example
+├── app/
+│   ├── config.py                   # đường dẫn, model OCR, load_app_config (YAML)
+│   ├── context.py                  # AppContext dùng chung
+│   ├── core/                       # ★ tái sử dụng từ main_qwen_ocr.py
+│   │   ├── capture.py              #   tìm cửa sổ + foreground + chụp bbox
+│   │   ├── ocr.py                  #   OCR Qwen3-VL (OpenRouter)
+│   │   └── rule_engine.py          #   đánh giá 5 loại rule + sinh lý do
+│   ├── db/
+│   │   ├── database.py             # SQLite schema + seed RBAC + admin
+│   │   └── repository.py           # CRUD: user/screenshot/ocr/rule/notif/cooldown
+│   ├── services/
+│   │   ├── auth.py                 # đăng nhập, hash mật khẩu (PBKDF2), quyền
+│   │   ├── email_service.py        # gửi SMTP (kèm ảnh) + chế độ DRY-RUN
+│   │   ├── notification_service.py # ★ rule→cooldown→email + "decision trace"
+│   │   └── capture_service.py      # điều phối toàn pipeline
+│   └── ui/                         # Tkinter (không cần lib GUI ngoài)
+│       ├── login_window.py
+│       ├── main_window.py          # notebook, hiện tab theo quyền
+│       ├── capture_tab.py          # chụp & OCR + 5 tab con (preview zoom/OCR/giải thích/email)
+│       ├── history_tab.py          # preview ảnh (zoom) + OCR + giải thích (từ DB)
+│       ├── rules_tab.py            # xem rule & trạng thái email
+│       ├── emails_tab.py           # EmailListView (bảng+nội dung+Gửi lại) & tab Email cấp cao
+│       ├── users_tab.py            # quản lý user (admin)
+│       ├── image_viewer.py         # canvas ảnh có zoom/pan + cửa sổ ảnh riêng
+│       └── explain.py              # render phần "vì sao gửi / không gửi"
+├── data/
+│   ├── screenshots/                # ảnh PNG
+│   ├── ocr_results/                # bản .txt OCR
+│   └── screenwatcher.db            # SQLite (tự tạo)
+└── logs/
+```
+
+---
+
+## 3. Thực thể quản lý (Database — SQLite)
+
+```
+roles ──< role_permissions >── permissions
+  │
+users ──< capture_sessions ──< screenshots ──1:1── ocr_results
+  │                                  │
+  │                                  ├──< rule_evaluations   (mỗi rule × screenshot)
+  │                                  └──< notifications      (quyết định gửi/không)
+  └──< audit_logs
+cooldown_state   (theo rule_id — chống gửi lặp)
+```
+
+| Bảng | Vai trò | Cột chính |
+|------|---------|-----------|
+| `roles` / `permissions` / `role_permissions` | RBAC | quan hệ vai trò–quyền (n-n) |
+| `users` | Người dùng | `username, password_hash, salt, role_id, is_active` |
+| `capture_sessions` | Một lần bấm "Chụp & OCR" | `user_id, targets, note` |
+| `screenshots` | Mỗi ảnh (1 target) | `target_app, window_title, file_path, width, height, status, error` |
+| `ocr_results` | OCR text của ảnh | `screenshot_id, model, text, char_count, duration_ms` |
+| `rule_evaluations` | Kết quả từng rule trên 1 ảnh | `rule_id, matched, severity, owner_group, reason, matched_terms` |
+| `notifications` | Quyết định gửi cho rule khớp + nội dung email | `rule_id, recipients, status, reason, subject, body` |
+| `cooldown_state` | Lần gửi gần nhất theo rule | `rule_id, owner_group, last_sent_at` |
+| `audit_logs` | Nhật ký hành động | `user_id, action, detail` |
+
+- `notifications.status`: `sent` / `simulated` / `skipped_cooldown` / `no_owner` / `send_failed` / `skipped_empty`.
+  `subject` + `body` chỉ lưu khi có gửi/mô phỏng/thất bại (để xem lại trong tab *Email đã gửi*).
+- Mật khẩu lưu **PBKDF2-HMAC-SHA256 + salt**, không lưu plaintext. Mật khẩu SMTP lấy từ **biến môi trường**, không nằm trong file cấu hình.
+
+---
+
+## 4. Cài đặt
+
+Yêu cầu: **Windows** + **Python ≥ 3.10**.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Tạo file cấu hình từ mẫu (vì `config/rules.yaml` được gitignore — chứa thông tin riêng):
+
+```powershell
+Copy-Item config\rules.example.yaml config\rules.yaml
+# rồi sửa owners/email trong config\rules.yaml theo nhu cầu
+```
+
+Tạo `.env` (lấy API key OCR MIỄN PHÍ tại <https://openrouter.ai/keys>):
+
+```powershell
+Copy-Item .env.example .env
+# OPENROUTER_API_KEY=sk-or-v1-...
+# (tùy chọn) WATCHER_SMTP_PASSWORD=<SMTP key nếu muốn gửi email thật>
+```
+
+---
+
+## 5. Cấu hình rule & email — `config/rules.yaml`
+
+> Giao diện app hiện **bằng tiếng Anh**. File README này vẫn tiếng Việt làm tài liệu;
+> tên tab/nút mô tả bên dưới là nhãn tiếng Anh đúng như trên app.
+
+```yaml
+rules:
+  - id: error_detected
+    name: "Error detected (ERROR/FAILED/TIMEOUT)"
+    type: regex
+    pattern: "(ERROR|FAILED|TIMEOUT)"
+    ignore_case: true
+    severity: high
+    owner_group: ops_team
+    cooldown_minutes: 15
+
+owners:
+  ops_team:
+    emails: [owner@example.com]
+
+email:
+  enabled: true                          # true = gửi THẬT; false = DRY-RUN (mô phỏng)
+  provider: custom                       # dùng Brevo làm SMTP relay (xem mục 5.1)
+  smtp_host: smtp-relay.brevo.com
+  smtp_port: 587
+  use_tls: true
+  username: xxxxxxxx@smtp-brevo.com       # SMTP login Brevo (KHÔNG phải mật khẩu)
+  from: your-verified-sender@gmail.com    # SENDER — phải verify trong Brevo
+  password_env: WATCHER_SMTP_PASSWORD     # SMTP key đặt trong .env
+
+cooldown:
+  default_minutes: 15
+```
+
+**Phân biệt quan trọng — người GỬI vs người NHẬN:**
+
+| | Trong config | Verify ở Brevo? |
+|---|---|---|
+| **Người gửi** (`email.from`) | địa chỉ đứng tên gửi | ✅ **Bắt buộc** verify 1 lần |
+| **Người nhận** (`owners.*.emails`) | nơi nhận cảnh báo (vd `owner@example.com`) | ❌ Không cần — đổi tùy ý |
+
+→ Đổi **người nhận** sau này chỉ sửa `owners`, **không cần đụng Brevo**. Chỉ khi đổi **người gửi** (`from`) mới phải verify địa chỉ mới.
+
+**Provider preset có sẵn** (nếu gửi trực tiếp, không qua Brevo):
+
+| provider | SMTP | Dùng cho |
+|----------|------|----------|
+| `gmail` | smtp.gmail.com:587 | Gmail — cần **App Password** 16 ký tự |
+| `office365` / `outlook` | smtp.office365.com:587 | Microsoft 365 — ⚠ thường bị **tắt SMTP AUTH**, khó dùng |
+| `outlook-personal` | smtp-mail.outlook.com:587 | `@outlook.com` / `@hotmail.com` |
+| `custom` | tự khai `smtp_host`/`smtp_port`/`use_tls` | dịch vụ relay như **Brevo / SendGrid** |
+
+> 💡 Tài khoản công ty như `@company.com` (Microsoft 365) **thường bị admin tắt SMTP AUTH** → không gửi trực tiếp được. Giải pháp: dùng dịch vụ relay **Brevo** (mục 5.1) làm SMTP server, gửi *tới* `@company.com`.
+
+---
+
+## 5.1. Tạo SMTP với Brevo để gửi mail (khuyến nghị)
+
+Brevo (free ~300 email/ngày, không cần thẻ) đóng vai trò **SMTP server** lo sẵn deliverability. Quy trình:
+
+### Bước 1 — Đăng ký
+Tạo tài khoản tại <https://www.brevo.com> → xác nhận email.
+
+### Bước 2 — Verify người GỬI (sender)
+Brevo chỉ cho gửi đứng tên địa chỉ đã xác minh:
+1. **Senders, Domains, IPs → Senders → Add a sender**.
+2. **Sender name** (vd `Screen Watcher`) + **Email** = địa chỉ **bạn truy cập được** (vd một Gmail của bạn).
+3. **Save** → Brevo gửi mã/link xác nhận **vào hộp thư đó** → mở mail bấm xác nhận → hiện **Verified** ✅.
+
+> ⚠ Sender **phải là hộp thư thật bạn mở được** (để lấy mã). KHÔNG dùng được:
+> - Địa chỉ ảo/bịa (không có hộp thư → không nhận được mã).
+> - Mail tạm (mail.tm…) → Brevo thường **đòi authenticate domain** (cần DNS bạn không sở hữu) → bế tắc.
+> - `@company.com` làm *sender* → gửi qua Brevo dễ bị bộ lọc của công ty chặn vì DMARC. `@company.com` nên để ở **người nhận**.
+
+### Bước 3 — Lấy thông tin SMTP
+**SMTP & API → SMTP**:
+- **SMTP Server:** `smtp-relay.brevo.com` · **Port:** `587`
+- **Login:** dạng `xxxxxxxx@smtp-brevo.com` (đây là `username`)
+- **SMTP key:** bấm **Generate a new SMTP key** → copy (đây là *mật khẩu*, để vào `.env`)
+
+### Bước 4 — Điền vào app
+`config/rules.yaml` (khối `email`):
+```yaml
+email:
+  enabled: true
+  provider: custom
+  smtp_host: smtp-relay.brevo.com
+  smtp_port: 587
+  use_tls: true
+  username: xxxxxxxx@smtp-brevo.com     # Login ở Bước 3
+  from: your-verified-sender@gmail.com   # sender đã verify ở Bước 2
+  password_env: WATCHER_SMTP_PASSWORD
+owners:
+  ops_team:
+    emails: [owner@example.com]            # người nhận — không cần verify
+```
+`.env`:
+```
+WATCHER_SMTP_PASSWORD=<SMTP key ở Bước 3>
+```
+
+### Bước 5 — Gửi thử & kiểm tra
+1. **Khởi động lại** `python run.py`.
+2. Tab **⚙ Rules & Email** → ô **To** = `owner@example.com` → **✉ Send test email**.
+3. Kiểm tra hộp thư người nhận (**cả Junk/Spam** lần đầu) và **Brevo → Transactional → Logs** (trạng thái `Delivered` / `Blocked`).
+
+### Lưu ý thực tế
+- App báo **"Sent"** chỉ nghĩa Brevo đã **nhận** ở mức SMTP. Trạng thái giao thật xem ở **Brevo Logs**. Nếu Logs báo *"sender ... is not valid"* → bạn **chưa verify** địa chỉ `from` (làm lại Bước 2).
+- Người nhận có thể thấy **From = `...@brevosend.com`** thay vì Gmail của bạn. Đây là **bình thường**: vì bạn chưa authenticate domain riêng, Brevo viết lại địa chỉ gửi sang domain đã xác thực của họ để **vượt SPF/DKIM/DMARC** (chính nhờ vậy thư mới vào được inbox). Muốn From hiển thị đúng địa chỉ đẹp → phải **authenticate một domain bạn sở hữu** (thêm DKIM/SPF vào DNS) — không làm được với gmail.com/company.com.
+- 🔐 SMTP key chỉ để trong `.env` (đã `.gitignore`). Nếu lộ → vào Brevo tạo key mới.
+
+Sửa YAML/`.env` xong nhớ **khởi động lại app**.
+
+---
+
+## 6. Chạy & sử dụng
+
+```powershell
+python run.py
+```
+
+1. **Đăng nhập** (Sign in): `admin` / `admin123` (đổi/thêm user trong tab *User Management*).
+2. Tab **📸 Capture & OCR**:
+   - Chọn **Chrome** hoặc **Edge** (radio, 1 trình duyệt), tích *Launch the app if it is not running* nếu cần.
+   - Bấm **Capture & OCR**. Khu vực kết quả có 5 tab: **📝 Log**, **🖼 Screenshot**,
+     **📄 OCR result**, **✉ Email explanation**, **📧 Sent emails** (email của lần
+     chụp này) — chụp xong tự mở tab *Screenshot*.
+   - Trong tab *Screenshot*: ➖/➕/⤢ Fit hoặc cuộn chuột để zoom, kéo để di chuyển,
+     **nháy đúp** để mở ảnh ở cửa sổ riêng (cũng có zoom).
+   - Trong tab *Sent emails*: chọn 1 email → xem nội dung; nút **✉ Resend** để gửi lại thủ công.
+   - ⚠ Trong ~1 giây lúc chụp, cửa sổ trình duyệt được đưa lên trên cùng — đừng click sang app khác.
+3. Tab **🗂 History & Results**: chọn 1 dòng → xem **ảnh** (có zoom + cửa sổ riêng),
+   **OCR text**, và **giải thích** (tái dựng từ DB).
+4. Tab **⚙ Rules & Email**: xem rule đang nạp + chế độ email (DRY-RUN / thật) + **Send test email**.
+5. Tab **📧 Sent Emails**: danh sách email đã gửi/mô phỏng/thất bại → chọn 1 dòng để xem
+   toàn bộ nội dung (tiêu đề, người nhận, lý do, body), hoặc bấm **✉ Resend**.
+6. Tab **👥 User Management** (admin).
+
+### Demo cooldown nhanh
+Mở một trang có chữ `ERROR` hoặc `Daily Sync Failed`, chụp Chrome **2 lần liên tiếp**:
+- Lần 1: rule khớp → *EMAIL SENT* (hoặc *Simulated send (DRY-RUN)* nếu `enabled: false`).
+- Lần 2: rule vẫn khớp nhưng → *Not sent (in cooldown)* kèm thời gian còn lại (BR04).
+
+### Trang test pain point có sẵn
+Thư mục **`test_pages/`** chứa các dashboard HTML mô phỏng đời thực (Anh / Hàn / Việt
+và mix) để test nhanh — mở bằng Chrome/Edge rồi chụp. Xem [test_pages/README.md](test_pages/README.md)
+để biết trang nào kích hoạt rule nào.
+
+---
+
+## 7. Xử lý sự cố
+
+| Hiện tượng | Khắc phục |
+|------------|-----------|
+| `OPENROUTER_API_KEY is not configured` | Tạo `.env`, dán key. |
+| `No Google Chrome window found (chrome.exe)` | Mở trình duyệt đó, hoặc tích *Launch the app if it is not running*. |
+| `Could not bring the window to the foreground` | App khác đang giữ focus → click vào trình duyệt rồi chụp lại. |
+| Gửi email thất bại (`SMTP error`) | Kiểm tra `enabled: true`, `provider`, `username`, và biến `WATCHER_SMTP_PASSWORD`. Gmail cần App Password; `@company.com` cần SMTP AUTH được bật + có thể cần app password. Dùng **Send test email** để chẩn đoán. |
+| `Missing SMTP password` | Chưa set `WATCHER_SMTP_PASSWORD` trong `.env`. |
+| Muốn xem rule khớp mà không gửi mail thật | Để `email.enabled: false` (DRY-RUN). |
+| Quên mật khẩu admin | Xóa `data/screenwatcher.db` (mất dữ liệu cũ) để tạo lại admin mặc định. |
+
+---
+
+## 8. Giới hạn
+
+- Chỉ chạy trên **Windows** (Win32 API để chụp cửa sổ).
+- Chụp theo **cửa sổ trình duyệt**, không theo monitor vật lý.
+- Chưa có scheduler tự động (Task Scheduler/cron) — app chạy theo thao tác người dùng.
+  Rule engine / cooldown / email đã có đầy đủ theo tài liệu.

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>CloudWatch — 경보 (Alarms) ap-northeast-2</title>
+<style>
+  body { font-family:'Malgun Gothic','Segoe UI',Arial,sans-serif; margin:0;
+         background:#0f1b2d; color:#d5dbe0; font-size:14px; }
+  .head { background:#232f3e; padding:10px 20px; display:flex; align-items:center; gap:14px;
+          border-bottom:3px solid #ff9900; }
+  .cube { width:22px;height:22px;background:#ff9900;border-radius:4px;
+          display:flex;align-items:center;justify-content:center;color:#232f3e;font-weight:800; }
+  .head b { font-size:16px; } .head .svc { color:#9aa7b3; font-size:13px; }
+  .head .region { margin-left:auto; font-size:13px; color:#ff9900; font-family:Consolas,monospace; }
+  .tiles { display:flex; gap:12px; padding:16px 20px; }
+  .tile { background:#1a2942; border:1px solid #2a3b57; border-radius:6px; padding:12px 18px; min-width:150px; }
+  .tile .l { color:#9aa7b3; font-size:12px; } .tile .n { font-size:26px; font-weight:700; margin-top:3px; }
+  .alarm { color:#ff6b6b; } .insuf { color:#f0b429; } .okc { color:#5cd6a0; }
+  h2 { margin:6px 20px; font-size:15px; }
+  table { width:calc(100% - 40px); margin:0 20px 20px; border-collapse:collapse;
+          background:#1a2942; border:1px solid #2a3b57; border-radius:6px; overflow:hidden; }
+  th { text-align:left; background:#22344f; color:#9aa7b3; font-size:12px; padding:10px 12px; }
+  td { padding:12px; border-top:1px solid #243651; font-size:14px; vertical-align:top; }
+  .state { font-size:11px; font-weight:700; padding:3px 9px; border-radius:3px; white-space:nowrap; }
+  .s-alarm { background:#3a1a1d; color:#ff6b6b; } .s-insuf { background:#3a3115; color:#f0b429; }
+  .s-ok { background:#13301f; color:#5cd6a0; }
+  .aname { font-weight:600; } .ametric { color:#9aa7b3; font-family:Consolas,monospace; font-size:13px; }
+  .adesc { margin-top:4px; color:#c2cad2; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="cube">aws</div><b>CloudWatch</b>
+    <span class="svc">› 모든 경보 (All alarms)</span>
+    <span class="region">ap-northeast-2 (Seoul)</span>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="l">경보 (In alarm)</div><div class="n alarm">6</div></div>
+    <div class="tile"><div class="l">데이터 부족</div><div class="n insuf">2</div></div>
+    <div class="tile"><div class="l">정상 (OK)</div><div class="n okc">88</div></div>
+    <div class="tile"><div class="l">마지막 갱신</div><div class="n" style="font-size:18px;color:#d5dbe0;">10:17 KST</div></div>
+  </div>
+
+  <h2>경보 상태 — Alarm state</h2>
+  <table>
+    <tr><th>상태 (State)</th><th>경보 이름 (Alarm)</th><th>지표 (Metric)</th><th>설명</th></tr>
+    <tr>
+      <td><span class="state s-alarm">⊗ In alarm</span></td>
+      <td><div class="aname">prod-api-5xx-high</div></td>
+      <td class="ametric">ALB · HTTPCode_Target_5XX</td>
+      <td><div class="adesc">5xx 오류 급증 — ERROR rate 13% (임계값 5% 초과 6분 지속)</div></td>
+    </tr>
+    <tr>
+      <td><span class="state s-alarm">⊗ In alarm</span></td>
+      <td><div class="aname">payment-lambda-timeout</div></td>
+      <td class="ametric">Lambda · Duration / Errors</td>
+      <td><div class="adesc">결제 Lambda 함수가 30초 후 TIMEOUT — 실행 실패 (FAILED invocations)</div></td>
+    </tr>
+    <tr>
+      <td><span class="state s-alarm">⊗ In alarm</span></td>
+      <td><div class="aname">daily-sync-job-failed</div></td>
+      <td class="ametric">Batch · JobFailed</td>
+      <td><div class="adesc">Daily Sync Failed — 야간 동기화 배치 작업 실패, 재시도 모두 실패</div></td>
+    </tr>
+    <tr>
+      <td><span class="state s-insuf">⚠ Insufficient</span></td>
+      <td><div class="aname">rds-replica-lag</div></td>
+      <td class="ametric">RDS · ReplicaLag</td>
+      <td><div class="adesc">데이터 부족 — 복제본 지표 수신 안 됨 (no data points)</div></td>
+    </tr>
+    <tr>
+      <td><span class="state s-ok">✓ OK</span></td>
+      <td><div class="aname">nightly-backup-status</div></td>
+      <td class="ametric">Batch · BackupResult</td>
+      <td><div class="adesc">야간 백업 정상 완료 (backup Completed, 1.2TB)</div></td>
+    </tr>
+  </table>
+</body>
+</html>

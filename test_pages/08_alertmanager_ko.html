@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Alertmanager — 발생 중인 경고 (Firing Alerts)</title>
+<style>
+  body { font-family:'Malgun Gothic','Segoe UI',Arial,sans-serif; margin:0;
+         background:#f5f6f8; color:#1f2933; font-size:15px; }
+  .nav { background:#e63946; color:#fff; padding:12px 22px; display:flex; align-items:center; gap:16px; }
+  .nav b { font-size:17px; } .nav a { color:#ffd9dc; text-decoration:none; font-size:14px; }
+  .wrap { max-width:1000px; margin:0 auto; padding:20px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:16px; }
+  .pill { background:#fff; border:1px solid #d2d6dc; border-radius:16px; padding:5px 13px; font-size:13px; }
+  .pill.red { background:#e63946; color:#fff; border-color:#e63946; }
+  .count { margin-left:auto; color:#52606d; font-size:14px; }
+  .group { background:#fff; border:1px solid #e1e4e8; border-radius:8px; margin-bottom:14px; overflow:hidden; }
+  .ghead { background:#fbeaec; padding:10px 16px; font-weight:600; border-bottom:1px solid #f0d5d8;
+           display:flex; gap:10px; align-items:center; }
+  .ghead .c { margin-left:auto; background:#e63946; color:#fff; border-radius:12px;
+              padding:2px 10px; font-size:13px; }
+  .alert { padding:12px 16px; border-bottom:1px solid #eef0f2; display:flex; gap:12px; }
+  .alert:last-child { border-bottom:none; }
+  .sev { font-size:11px; font-weight:700; padding:3px 8px; border-radius:3px; height:fit-content; white-space:nowrap; }
+  .crit { background:#fde2e4; color:#c1121f; } .warns { background:#fff3cd; color:#a86b00; }
+  .body .name { font-weight:600; }
+  .labels { margin-top:5px; }
+  .lbl { display:inline-block; background:#eef1f4; color:#3e4c59; border-radius:3px;
+         padding:2px 7px; font-size:12px; font-family:Consolas,monospace; margin:2px 4px 0 0; }
+  .desc { margin-top:6px; color:#3e4c59; font-size:14px; }
+</style>
+</head>
+<body>
+  <div class="nav"><b>🔔 Alertmanager</b>
+    <a>Alerts</a><a>Silences</a><a>Status</a>
+    <span style="margin-left:auto;font-size:13px;">Prometheus prod-kr · 2026-06-28 10:14 KST</span>
+  </div>
+  <div class="wrap">
+    <div class="toolbar">
+      <span class="pill red">발생 중 (Firing) 7</span>
+      <span class="pill">묵음 (Silenced) 2</span>
+      <span class="pill">억제됨 (Inhibited) 1</span>
+      <span class="count">그룹 기준: alertname · 마지막 평가 15초 전</span>
+    </div>
+
+    <div class="group">
+      <div class="ghead">⚠ alertname="HighErrorRate" <span class="c">2 firing</span></div>
+      <div class="alert"><span class="sev crit">critical</span>
+        <div class="body">
+          <div class="name">API 오류율 임계 초과 — ERROR rate exceeded</div>
+          <div class="labels"><span class="lbl">job="api"</span><span class="lbl">severity="critical"</span><span class="lbl">region="kr"</span></div>
+          <div class="desc">인증 서비스 오류로 5xx 비율이 13%까지 상승했습니다. (ERROR — too many failures)</div>
+        </div></div>
+      <div class="alert"><span class="sev crit">critical</span>
+        <div class="body">
+          <div class="name">결제 게이트웨이 응답 없음 — request TIMEOUT</div>
+          <div class="labels"><span class="lbl">job="payment"</span><span class="lbl">severity="critical"</span></div>
+          <div class="desc">카드 처리기로의 요청이 30초 후 TIMEOUT 되었습니다.</div>
+        </div></div>
+    </div>
+
+    <div class="group">
+      <div class="ghead">⚠ alertname="BatchJobFailed" <span class="c">1 firing</span></div>
+      <div class="alert"><span class="sev warns">warning</span>
+        <div class="body">
+          <div class="name">야간 배치 실패 — Daily Sync Failed</div>
+          <div class="labels"><span class="lbl">job="daily_sync"</span><span class="lbl">team="dba"</span></div>
+          <div class="desc">야간 동기화 작업이 실패했습니다. daily_sync FAILED, 마지막 성공 9시간 전.</div>
+        </div></div>
+    </div>
+
+    <div class="group">
+      <div class="ghead">⚠ alertname="DiskPressure" <span class="c">1 firing</span></div>
+      <div class="alert"><span class="sev warns">warning</span>
+        <div class="body">
+          <div class="name">디스크 사용량 경고</div>
+          <div class="labels"><span class="lbl">instance="db-kr-02"</span><span class="lbl">mountpoint="/data"</span></div>
+          <div class="desc">디스크 사용량 92%. 백업 작업은 정상 완료 (Completed).</div>
+        </div></div>
+    </div>
+  </div>
+</body>
+</html>
