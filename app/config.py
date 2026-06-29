@@ -64,18 +64,22 @@ def load_app_config() -> dict:
 
     if not RULES_YAML.exists():
         return {"rules": [], "owners": {}, "email": {"enabled": False},
-                "cooldown": {"default_minutes": 15}, "_error": f"{RULES_YAML} not found"}
+                "cooldown": {"default_minutes": 15, "enabled": True},
+                "_error": f"{RULES_YAML} not found"}
     try:
         with open(RULES_YAML, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except Exception as e:
         return {"rules": [], "owners": {}, "email": {"enabled": False},
-                "cooldown": {"default_minutes": 15}, "_error": f"YAML read error: {e}"}
+                "cooldown": {"default_minutes": 15, "enabled": True},
+                "_error": f"YAML read error: {e}"}
 
     data.setdefault("rules", [])
     data.setdefault("owners", {})
     data.setdefault("email", {"enabled": False})
-    data.setdefault("cooldown", {"default_minutes": 15})
+    data.setdefault("cooldown", {})
+    data["cooldown"].setdefault("default_minutes", 15)
+    data["cooldown"].setdefault("enabled", True)  # cooldown ON unless explicitly disabled
     return data
 
 

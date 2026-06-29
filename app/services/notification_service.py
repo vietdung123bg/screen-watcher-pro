@@ -63,6 +63,10 @@ class NotificationService:
         rules = self.cfg.get("rules", [])
         owners = self.cfg.get("owners", {})
         default_cd = int(self.cfg.get("cooldown", {}).get("default_minutes", 15))
+        # Master switch for cooldown. Set cooldown.enabled=false in rules.yaml to TURN
+        # OFF cooldown for testing: a matched rule then ALWAYS sends, ignoring the wait
+        # (handy to exercise the email path repeatedly without waiting 15–60 min).
+        cooldown_enabled = bool(self.cfg.get("cooldown", {}).get("enabled", True))
         decisions: list[RuleDecision] = []
 
         # BR05: empty OCR -> warn, skip rule evaluation, no email
@@ -103,11 +107,12 @@ class NotificationService:
                     True, ev.reason, "no_owner", reason))
                 continue
 
-            # Cooldown check (BR03 / BR04)
+            # Cooldown check (BR03 / BR04). Skipped entirely when cooldown is turned
+            # off (cooldown.enabled=false) so the send path can be tested repeatedly.
             cd_min = ev.cooldown_minutes or default_cd
-            last_sent = self.repo.get_cooldown(ev.rule_id)
             now = datetime.now()
-            if last_sent is not None:
+            last_sent = self.repo.get_cooldown(ev.rule_id)
+            if cooldown_enabled and last_sent is not None:
                 elapsed = now - last_sent
                 if elapsed < timedelta(minutes=cd_min):
                     remain = timedelta(minutes=cd_min) - elapsed
@@ -133,8 +138,12 @@ class NotificationService:
                 # Update cooldown (also in DRY-RUN to demonstrate BR04)
                 self.repo.set_cooldown(ev.rule_id, ev.owner_group, now)
                 action = "sent" if res.sent else "simulated"
-                reason = (f"Rule matched, has an owner, NOT in cooldown → eligible to send (BR03). "
-                          f"{res.detail}")
+                if cooldown_enabled:
+                    reason = (f"Rule matched, has an owner, NOT in cooldown → eligible to send (BR03). "
+                              f"{res.detail}")
+                else:
+                    reason = (f"Rule matched, has an owner; cooldown is DISABLED "
+                              f"(cooldown.enabled=false) → always sends. {res.detail}")
             else:
                 action = "send_failed"
                 reason = (f"Rule was eligible to send but failed → recorded as failed, "

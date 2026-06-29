@@ -17,6 +17,9 @@ Pain point được giải quyết (theo tài liệu): **P01** (thông tin chỉ
 **P02** (kiểm tra thủ công), **P03** (không có cảnh báo tự động), **P04** (không có
 bằng chứng kiểm tra).
 
+> 📘 **Hướng dẫn sử dụng giao diện chi tiết** (giới thiệu từng tab, chức năng Chụp/OCR,
+> quản lý người dùng, email, history, cách sửa config): xem [GUIDE.md](GUIDE.md).
+
 ---
 
 ## 1. Chức năng
@@ -63,7 +66,13 @@ bằng chứng kiểm tra).
 - **BR03**: rule khớp + có owner + hết cooldown → gửi email.
 - **BR04**: rule khớp nhưng còn cooldown → KHÔNG gửi lại (giải thích còn bao lâu).
 - **BR05**: OCR rỗng → ghi cảnh báo, không đánh giá rule, không gửi.
-- **BR06**: SMTP lỗi → ghi nhận `send_failed`, giữ cooldown để thử lại.
+- **BR06**: SMTP lỗi → ghi nhận `send_failed` kèm **mô tả lỗi chi tiết** (loại exception +
+  nguyên nhân khả dĩ: sai mật khẩu, sender chưa verify, timeout, DNS… — xem mục 7), giữ
+  cooldown để thử lại.
+- **Bật/tắt cooldown để TEST**: đặt `cooldown.enabled: false` trong `config/rules.yaml`
+  → cooldown **TẮT**, rule khớp sẽ **luôn gửi** (bỏ qua thời gian chờ), tiện kiểm thử
+  đường gửi mail nhiều lần mà không phải đợi 15–60 phút. Đặt lại `true` để bật BR04.
+  Trạng thái ON/OFF hiển thị ngay ở tab **⚙ Rules & Email** (dòng *Cooldown*).
 - **DRY-RUN**: đặt `email.enabled: false` trong YAML để **mô phỏng** gửi (an toàn khi demo) — vẫn ghi quyết định + cập nhật cooldown.
 
 ### Quản trị (admin)
@@ -333,6 +342,10 @@ Mở một trang có chữ `ERROR` hoặc `Daily Sync Failed`, chụp Chrome **2
 - Lần 1: rule khớp → *EMAIL SENT* (hoặc *Simulated send (DRY-RUN)* nếu `enabled: false`).
 - Lần 2: rule vẫn khớp nhưng → *Not sent (in cooldown)* kèm thời gian còn lại (BR04).
 
+Muốn **test riêng đường gửi mail** mà không bị cooldown chặn: đặt `cooldown.enabled: false`
+trong `config/rules.yaml` rồi khởi động lại — mỗi lần chụp rule khớp đều gửi (giải thích ghi
+*"cooldown is DISABLED → always sends"*). Đặt lại `true` để kiểm chứng BR04 chặn gửi lặp.
+
 ### Trang test pain point có sẵn
 Thư mục **`test_pages/`** chứa các dashboard HTML mô phỏng đời thực (Anh / Hàn / Việt
 và mix) để test nhanh — mở bằng Chrome/Edge rồi chụp. Xem [test_pages/README.md](test_pages/README.md)
@@ -347,9 +360,10 @@ và mix) để test nhanh — mở bằng Chrome/Edge rồi chụp. Xem [test_pa
 | `OPENROUTER_API_KEY is not configured` | Tạo `.env`, dán key. |
 | `No Google Chrome window found (chrome.exe)` | Mở trình duyệt đó, hoặc tích *Launch the app if it is not running*. |
 | `Could not bring the window to the foreground` | App khác đang giữ focus → click vào trình duyệt rồi chụp lại. |
-| Gửi email thất bại (`SMTP error`) | Kiểm tra `enabled: true`, `provider`, `username`, và biến `WATCHER_SMTP_PASSWORD`. Gmail cần App Password; `@company.com` cần SMTP AUTH được bật + có thể cần app password. Dùng **Send test email** để chẩn đoán. |
+| Gửi email thất bại (`SEND FAILED — …`) | App nay ghi **mô tả lỗi chi tiết** ngay trong tab *Email explanation* / *Sent emails* và full traceback trong `logs/`. Đọc phần mô tả để biết nguyên nhân: *Authentication failed* (sai `username`/mật khẩu — Gmail cần App Password, Brevo cần SMTP key), *Sender refused* (`from` chưa verify), *Connection timed out* (firewall/sai cổng), *DNS lookup failed* (sai `smtp_host`/mất mạng), *TLS/SSL handshake failed* (sai `use_tls`/cổng). Dùng **Send test email** để chẩn đoán nhanh. |
 | `Missing SMTP password` | Chưa set `WATCHER_SMTP_PASSWORD` trong `.env`. |
 | Muốn xem rule khớp mà không gửi mail thật | Để `email.enabled: false` (DRY-RUN). |
+| Muốn test gửi mail nhiều lần, không bị cooldown chặn | Đặt `cooldown.enabled: false` trong `config/rules.yaml` rồi khởi động lại (rule khớp sẽ luôn gửi). Đặt lại `true` để bật BR04. |
 | Quên mật khẩu admin | Xóa `data/screenwatcher.db` (mất dữ liệu cũ) để tạo lại admin mặc định. |
 
 ---

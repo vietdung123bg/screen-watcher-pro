@@ -40,6 +40,9 @@ class RulesTab(ttk.Frame):
             ("Owner groups", ", ".join(f"{k} ({len(v.get('emails', []))} email)"
                                        for k, v in owners.items()) or "—"),
             ("Default cooldown", f"{cfg.get('cooldown', {}).get('default_minutes', 15)} min"),
+            ("Cooldown", "ON (BR04 active)"
+             if cfg.get("cooldown", {}).get("enabled", True)
+             else "OFF — testing mode: matched rules always send"),
         ]
         for k, v in rows:
             line = ttk.Frame(status)

@@ -1,11 +1,26 @@
+# ===== Secrets & environment variables (NEVER commit) =====
 .env
+.env.*
+!.env.example
+
+# ===== Python =====
 .venv/
+venv/
 __pycache__/
 *.pyc
+
+# ===== App data: screenshots, OCR text, SQLite DB, logs =====
 data/screenshots/
 data/ocr_results/
 data/*.db
 logs/
-# Local config with real credentials / personal emails — keep out of the repo.
+
+# ===== Local config with real credentials / personal emails =====
 # Copy config/rules.example.yaml -> config/rules.yaml and fill in your own values.
 config/rules.yaml
+
+# ===== IDE / OS noise =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

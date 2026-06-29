@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 import os
 import smtplib
+import socket
+import ssl
 from dataclasses import dataclass
 from email.message import EmailMessage
 from pathlib import Path
@@ -30,6 +32,74 @@ class EmailSendResult:
     sent: bool
     simulated: bool          # True if DRY-RUN (not actually sent)
     detail: str              # human-readable explanation
+
+
+def _decode(value) -> str:
+    """SMTP servers often return the error message as bytes — decode for display."""
+    if isinstance(value, (bytes, bytearray)):
+        return value.decode("utf-8", "replace")
+    return str(value)
+
+
+def describe_send_error(exc: Exception, host: str | None, port: int | None,
+                        sender: str | None) -> str:
+    """Turn an SMTP/network exception into a clear, human-readable failure description.
+
+    Gives a friendly explanation of the LIKELY CAUSE plus the raw exception
+    (type + message), so a failed send is easy to diagnose. The returned string is
+    stored on the notification and shown in the "Email explanation" / "Sent emails"
+    tabs (BR06). Order matters: specific SMTP/socket errors are checked before the
+    generic OSError they all inherit from.
+    """
+    etype = type(exc).__name__
+    where = f"(server={host}:{port}, from={sender})"
+
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        what = ("Authentication failed — the server rejected the username/password. "
+                "Check `username` and the password env var (Gmail needs a 16-char App "
+                "Password; Brevo uses an SMTP key, not your login password). "
+                f"Server said {exc.smtp_code}: {_decode(exc.smtp_error)}")
+    elif isinstance(exc, smtplib.SMTPSenderRefused):
+        what = (f"Sender refused — the From address '{exc.sender}' was rejected, usually "
+                "because it is NOT a verified sender at your provider (e.g. Brevo). "
+                f"Server said {exc.smtp_code}: {_decode(exc.smtp_error)}")
+    elif isinstance(exc, smtplib.SMTPRecipientsRefused):
+        bad = ", ".join(exc.recipients) if getattr(exc, "recipients", None) else "?"
+        what = f"All recipients were refused by the server: {bad}."
+    elif isinstance(exc, smtplib.SMTPNotSupportedError):
+        what = ("The server does not support a required command (e.g. STARTTLS). "
+                "Try toggling `use_tls`, or switch port (587=STARTTLS, 465=SSL).")
+    elif isinstance(exc, smtplib.SMTPConnectError):
+        what = ("Could not establish the SMTP connection "
+                f"(server code {getattr(exc, 'smtp_code', '?')}).")
+    elif isinstance(exc, smtplib.SMTPServerDisconnected):
+        what = ("The server closed the connection unexpectedly — wrong port, TLS "
+                "required, or the connection was blocked.")
+    elif isinstance(exc, smtplib.SMTPHeloError):
+        what = "The server refused our HELO/EHLO greeting."
+    elif isinstance(exc, smtplib.SMTPDataError):
+        what = f"The server refused the message data (code {getattr(exc, 'smtp_code', '?')})."
+    elif isinstance(exc, smtplib.SMTPException):
+        what = "Generic SMTP protocol error."
+    elif isinstance(exc, ssl.SSLError):
+        what = ("TLS/SSL handshake failed — likely the wrong port/TLS mode "
+                "(587 uses STARTTLS, 465 uses implicit SSL).")
+    elif isinstance(exc, (TimeoutError, socket.timeout)):
+        what = (f"Connection timed out (20s) with no response from {host}:{port}. "
+                "A firewall/antivirus may be blocking the port, the host/port may be "
+                "wrong, or the network is down.")
+    elif isinstance(exc, socket.gaierror):
+        what = (f"DNS lookup failed — could not resolve smtp_host '{host}'. "
+                "Wrong host name or no network connection.")
+    elif isinstance(exc, ConnectionRefusedError):
+        what = (f"Connection refused by {host}:{port} — wrong port or the SMTP service "
+                "is not listening there.")
+    elif isinstance(exc, OSError):
+        what = f"Network/OS error while connecting to {host}:{port} (check network/port)."
+    else:
+        what = "Unexpected error while sending the email."
+
+    return f"SEND FAILED — {what} [{etype}: {exc}] {where}"
 
 
 class EmailService:
@@ -115,5 +185,8 @@ class EmailService:
             return EmailSendResult(True, False,
                                    f"Email sent to {recipients} via {host}:{port}.")
         except Exception as e:
-            logger.error("Email send failed: %s", e)
-            return EmailSendResult(False, False, f"SMTP error: {e}")
+            detail = describe_send_error(e, host, port, sender)
+            # logger.exception() writes the full traceback to logs/ for deep debugging,
+            # while `detail` carries the clean explanation back to the UI.
+            logger.exception("Email send to %s FAILED — %s", recipients, detail)
+            return EmailSendResult(False, False, detail)

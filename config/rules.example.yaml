@@ -57,5 +57,8 @@ email:
   password_env: WATCHER_SMTP_PASSWORD        # the SMTP key/password lives in .env
 
 # ---- Default cooldown ----
+# enabled: true  -> cooldown ON  (BR04: a matched rule won't re-send within its window)
+# enabled: false -> cooldown OFF (for TESTING: a matched rule ALWAYS sends, ignores the wait)
 cooldown:
   default_minutes: 15
+  enabled: true
