@@ -1,4 +1,4 @@
-"""Điều phối: chụp 1 hoặc nhiều target (Chrome/Edge) -> lưu ảnh -> OCR -> lưu DB."""
+"""Orchestration: capture one or more targets (Chrome/Edge) -> save image -> OCR -> save to DB."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class TargetResult:
     ocr_text: str = ""
     char_count: int = 0
     error: str | None = None
-    outcome: NotificationOutcome | None = None   # kết quả rule + quyết định gửi mail
+    outcome: NotificationOutcome | None = None   # rule result + email-send decision
 
 
 class CaptureService:

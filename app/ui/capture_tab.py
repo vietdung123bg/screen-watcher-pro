@@ -23,7 +23,7 @@ class CaptureTab(ttk.Frame):
     def __init__(self, parent, ctx: AppContext, on_done=None):
         super().__init__(parent, padding=16)
         self.ctx = ctx
-        self.on_done = on_done          # callback để History tab refresh
+        self.on_done = on_done          # callback to refresh the History tab
         self._queue: queue.Queue = queue.Queue()
         self._running = False
         self._build()

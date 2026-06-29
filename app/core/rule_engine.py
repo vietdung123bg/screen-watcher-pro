@@ -1,14 +1,14 @@
-"""Rule Engine: đánh giá OCR text theo rule trong YAML.
+"""Rule Engine: evaluate OCR text against rules defined in YAML.
 
-Hỗ trợ 5 loại rule (giống tài liệu Screen Watcher):
-  - contains        : text CÓ chứa `value`
-  - not_contains    : text KHÔNG chứa `value`  (rule kích hoạt khi vắng mặt)
-  - regex           : `pattern` khớp ở bất kỳ đâu trong text
-  - all_keywords    : text chứa TẤT CẢ `keywords`
-  - any_keywords    : text chứa ÍT NHẤT MỘT `keywords`
+Supports 5 rule types (matching the Screen Watcher docs):
+  - contains        : text DOES contain `value`
+  - not_contains    : text does NOT contain `value`  (rule triggers when absent)
+  - regex           : `pattern` matches anywhere in the text
+  - all_keywords    : text contains ALL `keywords`
+  - any_keywords    : text contains AT LEAST ONE of `keywords`
 
-Mỗi đánh giá trả về RuleEvaluation có `matched` và `reason` (giải thích tiếng Việt
-để hiển thị cho người dùng).
+Each evaluation returns a RuleEvaluation with `matched` and `reason` (a human-readable
+explanation to show to the user).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ class RuleEvaluation:
     rule_name: str
     rule_type: str
     matched: bool
-    reason: str                       # giải thích vì sao match / không match
+    reason: str                       # explains why it matched / did not match
     severity: str = "medium"
     owner_group: str = ""
     cooldown_minutes: int = 15

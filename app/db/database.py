@@ -1,4 +1,4 @@
-"""Kết nối SQLite, khởi tạo schema và seed dữ liệu mặc định (RBAC)."""
+"""SQLite connection, schema initialization and default data seeding (RBAC)."""
 
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS capture_sessions (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id),
-    targets    TEXT NOT NULL,          -- vd: "chrome,edge"
+    targets    TEXT NOT NULL,          -- e.g.: "chrome,edge"
     note       TEXT,
     created_at TEXT NOT NULL
 );
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TEXT NOT NULL
 );
 
--- Kết quả đánh giá từng rule trên text OCR của một screenshot
+-- Result of evaluating each rule against the OCR text of a screenshot
 CREATE TABLE IF NOT EXISTS rule_evaluations (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     screenshot_id INTEGER NOT NULL REFERENCES screenshots(id) ON DELETE CASCADE,
@@ -117,12 +117,12 @@ CREATE TABLE IF NOT EXISTS rule_evaluations (
     matched       INTEGER NOT NULL,       -- 0/1
     severity      TEXT,
     owner_group   TEXT,
-    reason        TEXT,                   -- giải thích vì sao match / không match
+    reason        TEXT,                   -- explains why it matched / did not match
     matched_terms TEXT,
     created_at    TEXT NOT NULL
 );
 
--- Mỗi quyết định thông báo (gửi / bỏ qua) cho một rule khớp
+-- One notification decision (send / skip) for a matched rule
 CREATE TABLE IF NOT EXISTS notifications (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     screenshot_id INTEGER NOT NULL REFERENCES screenshots(id) ON DELETE CASCADE,
@@ -130,13 +130,13 @@ CREATE TABLE IF NOT EXISTS notifications (
     owner_group   TEXT,
     recipients    TEXT,
     status        TEXT NOT NULL,          -- sent/simulated/skipped_cooldown/no_owner/send_failed/skipped_empty
-    reason        TEXT,                   -- giải thích vì sao gửi / không gửi
-    subject       TEXT,                   -- tiêu đề email (nếu có gửi/mô phỏng)
-    body          TEXT,                   -- nội dung email đã gửi
+    reason        TEXT,                   -- explains why it was sent / not sent
+    subject       TEXT,                   -- email subject (if sent/simulated)
+    body          TEXT,                   -- content of the sent email
     created_at    TEXT NOT NULL
 );
 
--- Trạng thái cooldown theo rule (chống gửi email lặp)
+-- Cooldown state per rule (prevents sending duplicate emails)
 CREATE TABLE IF NOT EXISTS cooldown_state (
     rule_id       TEXT PRIMARY KEY,
     owner_group   TEXT,
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS cooldown_state (
 
 
 class Database:
-    """Bọc kết nối SQLite. Dùng được từ nhiều thread (capture chạy nền)."""
+    """Wraps the SQLite connection. Usable from multiple threads (capture runs in the background)."""
 
     def __init__(self, db_path: Path | None = None):
         self.path = Path(db_path or config.DB_PATH)
@@ -161,23 +161,23 @@ class Database:
             self.conn.executescript(SCHEMA)
             self.conn.commit()
         self._migrate()
-        logger.info("Đã khởi tạo schema tại %s", self.path)
+        logger.info("Initialized schema at %s", self.path)
         self._seed_rbac()
 
     def _migrate(self) -> None:
-        """Thêm cột mới vào DB cũ (CREATE TABLE IF NOT EXISTS không tự thêm cột)."""
+        """Add new columns to an old DB (CREATE TABLE IF NOT EXISTS does not add columns by itself)."""
         with self.lock:
             cur = self.conn.cursor()
             cols = {r["name"] for r in cur.execute("PRAGMA table_info(notifications)")}
             for col in ("subject", "body"):
                 if col not in cols:
                     cur.execute(f"ALTER TABLE notifications ADD COLUMN {col} TEXT")
-                    logger.info("Migration: thêm cột notifications.%s", col)
+                    logger.info("Migration: added column notifications.%s", col)
             self.conn.commit()
 
     def _seed_rbac(self) -> None:
-        """Seed permissions, roles, role_permissions và tài khoản admin mặc định."""
-        from app.services.auth import hash_password  # tránh import vòng
+        """Seed permissions, roles, role_permissions and the default admin account."""
+        from app.services.auth import hash_password  # avoid circular import
 
         with self.lock:
             cur = self.conn.cursor()
@@ -207,7 +207,7 @@ class Database:
                         (role_id, perm_id),
                     )
 
-            # tài khoản admin mặc định: admin / admin123
+            # default admin account: admin / admin123
             exists = cur.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
             if exists == 0:
                 from datetime import datetime
@@ -222,7 +222,7 @@ class Database:
                     ("admin", pwd_hash, salt, "Administrator", admin_role_id,
                      datetime.now().isoformat(timespec="seconds")),
                 )
-                logger.info("Đã tạo tài khoản admin mặc định (admin / admin123).")
+                logger.info("Created the default admin account (admin / admin123).")
 
             self.conn.commit()
 

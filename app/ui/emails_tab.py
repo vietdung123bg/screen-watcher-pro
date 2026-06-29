@@ -14,7 +14,7 @@ from app.services.notification_service import ACTION_LABELS
 
 
 class EmailListView(ttk.Frame):
-    """Bảng email + ô nội dung + nút Gửi lại. Nguồn dữ liệu nạp qua set_source()."""
+    """Email table + content box + Resend button. Data source is loaded via set_source()."""
 
     def __init__(self, parent, ctx: AppContext, title: str = "✉ Sent emails"):
         super().__init__(parent, padding=8)
@@ -56,7 +56,7 @@ class EmailListView(ttk.Frame):
                                               state="disabled")
         self.body.pack(fill="both", expand=True)
 
-    # ---------- nạp dữ liệu ----------
+    # ---------- load data ----------
     def set_source(self, source_fn) -> None:
         self._source = source_fn
 
@@ -81,7 +81,7 @@ class EmailListView(ttk.Frame):
         self.body.insert("1.0", text)
         self.body.config(state="disabled")
 
-    # ---------- tương tác ----------
+    # ---------- interaction ----------
     def _selected_id(self) -> int | None:
         sel = self.tree.selection()
         return int(sel[0]) if sel else None

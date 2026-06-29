@@ -1,4 +1,4 @@
-"""Canvas xem ảnh có zoom in/out + pan, và cửa sổ ảnh riêng (Toplevel)."""
+"""Image-viewing canvas with zoom in/out + pan, and a separate image window (Toplevel)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ MAX_SCALE = 8.0
 
 
 class ZoomableImage(ttk.Frame):
-    """Canvas hiển thị ảnh: cuộn chuột để zoom, kéo chuột để di chuyển, có scrollbar."""
+    """Canvas that displays an image: scroll to zoom, drag to pan, with scrollbars."""
 
     def __init__(self, parent, bg: str = "#202020", on_double_click=None):
         super().__init__(parent)
@@ -71,7 +71,7 @@ class ZoomableImage(ttk.Frame):
         self._zoom(1 / ZOOM_STEP)
 
     def reset(self) -> None:
-        """Về mức vừa khung."""
+        """Reset to fit-to-frame level."""
         if self._orig is not None:
             self._scale = self._fit_scale
             self._render()
@@ -90,7 +90,7 @@ class ZoomableImage(ttk.Frame):
         cw = self.canvas.winfo_width()
         ch = self.canvas.winfo_height()
         if cw < 10 or ch < 10:
-            return  # chưa layout xong -> đợi <Configure>
+            return  # layout not done yet -> wait for <Configure>
         ow, oh = self._orig.size
         self._fit_scale = min(cw / ow, ch / oh)
         self._scale = self._fit_scale

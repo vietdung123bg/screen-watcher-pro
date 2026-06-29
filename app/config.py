@@ -1,4 +1,4 @@
-"""Cấu hình tập trung: đường dẫn, model OCR, target chụp, logging."""
+"""Centralized configuration: paths, OCR model, capture targets, logging."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# screen-watcher-pro/  (lùi 2 cấp từ app/config.py)
+# screen-watcher-pro/  (two levels up from app/config.py)
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 SCREENSHOT_DIR = DATA_DIR / "screenshots"
@@ -22,13 +22,13 @@ RULES_YAML = CONFIG_DIR / "rules.yaml"
 
 load_dotenv(BASE_DIR / ".env")
 
-# ---- OCR (Qwen3-VL qua OpenRouter) ----
+# ---- OCR (Qwen3-VL via OpenRouter) ----
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_NAME = os.environ.get("OCR_MODEL", "qwen/qwen3-vl-30b-a3b-instruct").strip()
 
-# Resize ảnh trước khi gửi OCR để tiết kiệm token / tăng tốc (cạnh dài tối đa, px).
-# Đặt 0 để gửi nguyên kích thước.
+# Resize the image before sending it to OCR to save tokens / speed things up (max long edge, px).
+# Set to 0 to send the original size.
 OCR_MAX_IMAGE_DIM = 1600
 
 OCR_PROMPT = (
@@ -59,8 +59,8 @@ def ensure_dirs() -> None:
 
 
 def load_app_config() -> dict:
-    """Đọc config/rules.yaml. Trả về dict rỗng-an-toàn nếu thiếu file/lỗi."""
-    import yaml  # import cục bộ để config.py không phụ thuộc cứng vào PyYAML
+    """Read config/rules.yaml. Returns a safe empty dict if the file is missing or invalid."""
+    import yaml  # local import so config.py does not hard-depend on PyYAML
 
     if not RULES_YAML.exists():
         return {"rules": [], "owners": {}, "email": {"enabled": False},
@@ -84,13 +84,13 @@ def load_app_config() -> dict:
 
 
 def setup_logging() -> logging.Logger:
-    """Logger ghi đồng thời ra file (logs/) và console."""
+    """Logger that writes to both a file (logs/) and the console."""
     ensure_dirs()
     log_file = LOG_DIR / f"app_{datetime.now():%Y%m%d}.log"
 
     logger = logging.getLogger("screen_watcher")
     logger.setLevel(logging.INFO)
-    if logger.handlers:  # đã cấu hình rồi thì dùng lại
+    if logger.handlers:  # already configured, reuse it
         return logger
 
     fmt = logging.Formatter(

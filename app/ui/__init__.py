@@ -1,7 +1,7 @@
-"""UI desktop (Tkinter)."""
+"""Desktop UI (Tkinter)."""
 
 
 def clear_widget(widget) -> None:
-    """Xóa toàn bộ con của một widget (dùng khi chuyển màn hình trong cùng root)."""
+    """Remove all children of a widget (used when switching screens within the same root)."""
     for child in widget.winfo_children():
         child.destroy()

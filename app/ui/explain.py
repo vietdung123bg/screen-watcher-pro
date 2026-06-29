@@ -1,6 +1,6 @@
-"""Định dạng phần GIẢI THÍCH 'vì sao gửi / không gửi email' cho người dùng.
+"""Formats the EXPLANATION of 'why an email was / was not sent' for the user.
 
-Dùng được cho cả kết quả vừa chụp (NotificationOutcome) lẫn dữ liệu lịch sử (DB).
+Works for both a just-captured result (NotificationOutcome) and historical data (DB).
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def from_outcome(outcome) -> str:
 
 
 def from_db(repo, screenshot_id: int) -> str:
-    """Dựng lại giải thích từ bảng rule_evaluations + notifications."""
+    """Rebuild the explanation from the rule_evaluations + notifications tables."""
     evals = repo.list_rule_evaluations(screenshot_id)
     notifs = repo.list_notifications(screenshot_id)
     notif_by_rule = {n["rule_id"]: n for n in notifs}

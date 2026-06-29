@@ -1,10 +1,10 @@
-"""Chụp một cửa sổ Windows cụ thể (Chrome / Edge / ...).
+"""Capture a specific Windows window (Chrome / Edge / ...).
 
-Tái sử dụng nguyên vẹn kỹ thuật từ main_qwen_ocr.py:
-  - Tìm cửa sổ THẬT theo tiêu đề (loại cloaked / phantom).
-  - Đưa cửa sổ lên foreground đáng tin cậy (AttachThreadInput + minimize/restore).
-  - Chụp theo bbox thật (DwmGetWindowAttribute), DPI-aware.
-  - Tùy chọn tự khởi chạy app nếu chưa mở.
+Reuses the exact technique from main_qwen_ocr.py:
+  - Find the REAL window by title (excluding cloaked / phantom ones).
+  - Reliably bring the window to the foreground (AttachThreadInput + minimize/restore).
+  - Capture using the true bbox (DwmGetWindowAttribute), DPI-aware.
+  - Optionally auto-launch the app if it is not already open.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from PIL import Image, ImageGrab
 
 logger = logging.getLogger("screen_watcher.capture")
 
-# Khai báo argtypes để không bị truncate HANDLE trên Python 64-bit
+# Declare argtypes so the HANDLE is not truncated on 64-bit Python
 _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 _k32 = ctypes.windll.kernel32
 _k32.OpenProcess.restype = wintypes.HANDLE
@@ -34,7 +34,7 @@ _k32.CloseHandle.argtypes = [wintypes.HANDLE]
 
 
 def _process_exe(hwnd: int) -> str:
-    """Tên file tiến trình sở hữu cửa sổ, vd 'msedge.exe' (lowercase). '' nếu lỗi."""
+    """File name of the process that owns the window, e.g. 'msedge.exe' (lowercase). '' on error."""
     try:
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
         if not pid:
@@ -53,14 +53,14 @@ def _process_exe(hwnd: int) -> str:
     except Exception:
         return ""
 
-# DwmGetWindowAttribute — lấy bbox thật (loại trừ shadow/invisible border của DWM)
+# DwmGetWindowAttribute — get the true bbox (excluding DWM shadow/invisible border)
 DWMWA_EXTENDED_FRAME_BOUNDS = 9
-# DWMWA_CLOAKED — phát hiện cửa sổ "ẩn" (virtual desktop khác / UWP suspended)
+# DWMWA_CLOAKED — detect "hidden" windows (on another virtual desktop / UWP suspended)
 DWMWA_CLOAKED = 14
-# Cửa sổ nhỏ hơn ngưỡng này coi là phantom/helper, bỏ qua
+# Windows smaller than this threshold are treated as phantom/helper and skipped
 MIN_WINDOW_SIZE = 200
 
-# Bật DPI awareness ngay từ đầu — không thì bbox sẽ lệch trên màn hình HiDPI / scale > 100%
+# Enable DPI awareness up front — otherwise the bbox will be off on HiDPI screens / scale > 100%
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
 except (AttributeError, OSError):
@@ -71,7 +71,7 @@ except (AttributeError, OSError):
 
 
 def enum_windows() -> list[tuple[int, str]]:
-    """Trả về [(hwnd, title), ...] cho các cửa sổ visible có tiêu đề."""
+    """Return [(hwnd, title), ...] for visible windows that have a title."""
     results: list[tuple[int, str]] = []
 
     def callback(hwnd: int, _: object) -> bool:
@@ -87,7 +87,7 @@ def enum_windows() -> list[tuple[int, str]]:
 
 
 def _is_cloaked(hwnd: int) -> bool:
-    """True nếu cửa sổ bị DWM 'cloak' (đang ở virtual desktop khác / UWP suspended)."""
+    """True if the window is 'cloaked' by DWM (on another virtual desktop / UWP suspended)."""
     cloaked = wintypes.DWORD()
     hr = ctypes.windll.dwmapi.DwmGetWindowAttribute(
         wintypes.HWND(hwnd),
@@ -99,7 +99,7 @@ def _is_cloaked(hwnd: int) -> bool:
 
 
 def _get_window_bbox(hwnd: int) -> tuple[int, int, int, int]:
-    """Lấy bbox thật của cửa sổ (đã loại shadow của DWM, DPI-aware)."""
+    """Get the true bbox of the window (DWM shadow removed, DPI-aware)."""
     rect = wintypes.RECT()
     hr = ctypes.windll.dwmapi.DwmGetWindowAttribute(
         wintypes.HWND(hwnd),
@@ -107,14 +107,14 @@ def _get_window_bbox(hwnd: int) -> tuple[int, int, int, int]:
         ctypes.byref(rect),
         ctypes.sizeof(rect),
     )
-    if hr != 0:  # DWM API thất bại — fallback sang GetWindowRect
+    if hr != 0:  # DWM API failed — fall back to GetWindowRect
         return win32gui.GetWindowRect(hwnd)
     return rect.left, rect.top, rect.right, rect.bottom
 
 
 def _effective_rect(hwnd: int) -> tuple[int, int, int, int]:
-    """Rect để đánh giá kích thước. Nếu cửa sổ đang minimize thì bbox bị off-screen
-    (vd 183x26), nên dùng kích thước lúc KHÔI PHỤC (GetWindowPlacement.rcNormalPosition)."""
+    """Rect used to assess size. If the window is minimized its bbox is off-screen
+    (e.g. 183x26), so use the RESTORED size (GetWindowPlacement.rcNormalPosition)."""
     if win32gui.IsIconic(hwnd):
         try:
             return win32gui.GetWindowPlacement(hwnd)[4]  # rcNormalPosition
@@ -124,12 +124,12 @@ def _effective_rect(hwnd: int) -> tuple[int, int, int, int]:
 
 
 def find_window_by_process(process_name: str, quiet: bool = False) -> tuple[int, str] | None:
-    """Tìm cửa sổ THẬT của tiến trình `process_name` (vd 'msedge.exe').
+    """Find the REAL window of the process `process_name` (e.g. 'msedge.exe').
 
-    Khớp theo TÊN TIẾN TRÌNH thay vì tiêu đề — tin cậy với trình duyệt vì Chrome/Edge
-    bỏ hậu tố "- Google Chrome"/"- Microsoft Edge" khi mở nhiều tab.
-    Bỏ qua cửa sổ cloaked / quá nhỏ; nếu nhiều cửa sổ thì chọn cái diện tích lớn nhất.
-    `quiet=True` -> không log khi không tìm thấy (dùng lúc poll chờ app khởi chạy).
+    Matches by PROCESS NAME rather than title — reliable for browsers because Chrome/Edge
+    drop the "- Google Chrome"/"- Microsoft Edge" suffix when many tabs are open.
+    Skips cloaked / too-small windows; if there are several, pick the one with the largest area.
+    `quiet=True` -> do not log when nothing is found (used while polling for the app to launch).
     """
     want = process_name.lower()
     candidates: list[tuple[int, str, int]] = []  # (hwnd, title, area)
@@ -180,10 +180,10 @@ def launch_app(launch_cmd: str, process_name: str, wait_sec: float = 15.0) -> tu
 
 
 def _force_foreground(hwnd: int, aggressive: bool = False) -> None:
-    """Ép cửa sổ lên foreground.
+    """Force the window to the foreground.
 
-    aggressive=True: minimize rồi restore — Windows LUÔN kéo cửa sổ lên foreground
-    khi restore, kể cả khi tiến trình console đang giữ foreground lock.
+    aggressive=True: minimize then restore — Windows ALWAYS pulls the window to the
+    foreground on restore, even when a console process is holding the foreground lock.
     """
     user32 = ctypes.windll.user32
     kernel32 = ctypes.windll.kernel32
@@ -199,7 +199,7 @@ def _force_foreground(hwnd: int, aggressive: bool = False) -> None:
     fg_thread = user32.GetWindowThreadProcessId(fg_hwnd, None)
     target_thread = user32.GetWindowThreadProcessId(hwnd, None)
 
-    # ALT-trick mở khóa cơ chế chống "steal focus" của Windows
+    # ALT trick to unlock Windows' anti-"steal focus" mechanism
     user32.keybd_event(0x12, 0, 0, 0)   # ALT down
     user32.keybd_event(0x12, 0, 2, 0)   # ALT up
 
@@ -225,9 +225,9 @@ def _force_foreground(hwnd: int, aggressive: bool = False) -> None:
 
 
 def _bring_to_foreground(hwnd: int) -> bool:
-    """Đưa cửa sổ lên foreground và XÁC NHẬN nó thực sự đã nổi lên.
+    """Bring the window to the foreground and CONFIRM it actually came up.
 
-    2 lần đầu thử nhẹ (AttachThreadInput), từ lần 3 escalate sang minimize/restore.
+    The first 2 attempts try gently (AttachThreadInput); from the 3rd, escalate to minimize/restore.
     """
     try:
         if win32gui.IsIconic(hwnd):

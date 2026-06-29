@@ -1,6 +1,6 @@
-"""Entry point: khởi tạo DB, mở UI desktop Screen Watcher.
+"""Entry point: initialize the DB and open the Screen Watcher desktop UI.
 
-Chạy:  python run.py
+Run:  python run.py
 """
 
 from __future__ import annotations
@@ -20,13 +20,13 @@ from app.ui.main_window import MainWindow
 
 
 def _configure_fonts(root: tk.Tk) -> None:
-    """Phóng to font mặc định toàn app cho dễ đọc."""
+    """Enlarge the app-wide default fonts for readability."""
     from tkinter import font as tkfont
 
     sizes = {
         "TkDefaultFont": 12,    # label, button, checkbox, radio
         "TkTextFont": 12,       # entry, text
-        "TkHeadingFont": 12,    # tiêu đề cột Treeview
+        "TkHeadingFont": 12,    # Treeview column headings
         "TkMenuFont": 12,
         "TkTooltipFont": 11,
         "TkIconFont": 12,
@@ -38,7 +38,7 @@ def _configure_fonts(root: tk.Tk) -> None:
         except tk.TclError:
             pass
 
-    # Hàng Treeview cao hơn cho cân đối với font lớn
+    # Taller Treeview rows to balance the larger font
     try:
         from tkinter import ttk
         style = ttk.Style()

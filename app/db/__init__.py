@@ -1,1 +1,1 @@
-"""Tầng dữ liệu: SQLite schema + repository."""
+"""Data layer: SQLite schema + repository."""

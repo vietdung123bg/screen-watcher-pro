@@ -1,1 +1,1 @@
-"""Tầng nghiệp vụ: xác thực/phân quyền và điều phối chụp + OCR."""
+"""Business layer: authentication/authorization and capture + OCR orchestration."""

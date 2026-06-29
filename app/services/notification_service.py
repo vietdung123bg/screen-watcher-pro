@@ -1,10 +1,10 @@
-"""Điều phối thông báo: rule -> cooldown -> email, kèm GIẢI THÍCH chi tiết.
+"""Notification orchestration: rule -> cooldown -> email, with a detailed EXPLANATION.
 
-Sinh ra "decision trace": với mỗi rule, ghi rõ
-  - matched hay không và VÌ SAO,
-  - nếu matched thì có gửi mail không và VÌ SAO (cooldown / không có owner /
-    gửi thành công / DRY-RUN / SMTP lỗi).
-Trace này vừa lưu DB vừa hiển thị cho người dùng.
+Produces a "decision trace": for each rule, it records
+  - whether it matched and WHY,
+  - if matched, whether an email was sent and WHY (cooldown / no owner /
+    sent successfully / DRY-RUN / SMTP error).
+This trace is both saved to the DB and shown to the user.
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ class NotificationService:
 
         evals = rule_engine.evaluate_all(rules, ocr_text)
         for ev in evals:
-            # Lưu kết quả đánh giá rule
+            # Save the rule evaluation result
             self.repo.create_rule_evaluation(
                 screenshot_id, ev.rule_id, ev.rule_name, ev.rule_type,
                 1 if ev.matched else 0, ev.severity, ev.owner_group,

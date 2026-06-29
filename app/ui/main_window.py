@@ -1,4 +1,4 @@
-"""Cửa sổ chính sau khi đăng nhập — chứa các tab theo quyền."""
+"""Main window after sign-in — contains tabs based on permissions."""
 
 from __future__ import annotations
 

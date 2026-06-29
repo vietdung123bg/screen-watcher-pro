@@ -1,4 +1,4 @@
-"""Context dùng chung giữa các màn hình UI."""
+"""Context shared across the UI screens."""
 
 from __future__ import annotations
 

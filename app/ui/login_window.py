@@ -1,4 +1,4 @@
-"""Màn hình đăng nhập."""
+"""Sign-in screen."""
 
 from __future__ import annotations
 

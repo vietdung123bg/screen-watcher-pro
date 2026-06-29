@@ -1,4 +1,4 @@
-"""Repository: CRUD cho user/role/permission, screenshot và OCR."""
+"""Repository: CRUD for user/role/permission, screenshot and OCR."""
 
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ class Repository:
         return cur.lastrowid
 
     def list_screenshots(self, user_id: int | None = None) -> list[sqlite3.Row]:
-        """user_id=None -> tất cả (cần quyền view_all); ngược lại lọc theo user."""
+        """user_id=None -> all (requires the view_all permission); otherwise filter by user."""
         sql = (
             "SELECT s.*, u.username, o.char_count, o.id AS ocr_id "
             "FROM screenshots s "
@@ -188,10 +188,10 @@ class Repository:
 
     def list_emails(self, user_id: int | None = None,
                     screenshot_ids: list[int] | None = None) -> list[sqlite3.Row]:
-        """Các email đã gửi / mô phỏng / thất bại (có nội dung), kèm thông tin screenshot.
+        """Emails that were sent / simulated / failed (with content), along with screenshot info.
 
-        user_id=None -> tất cả; ngược lại chỉ email của screenshot do user đó chụp.
-        screenshot_ids -> chỉ lấy email của các screenshot này (dùng cho tab con sau khi chụp).
+        user_id=None -> all; otherwise only emails for screenshots captured by that user.
+        screenshot_ids -> only fetch emails for these screenshots (used for the sub-tab after capturing).
         """
         sql = (
             "SELECT n.*, s.user_id AS s_user_id, s.target_app, s.window_title, "
@@ -217,7 +217,7 @@ class Repository:
 
     # ---------- cooldown ----------
     def get_cooldown(self, rule_id: str):
-        """Trả về datetime lần gửi gần nhất, hoặc None."""
+        """Return the datetime of the most recent send, or None."""
         row = self._query_one(
             "SELECT last_sent_at FROM cooldown_state WHERE rule_id = ?", (rule_id,)
         )

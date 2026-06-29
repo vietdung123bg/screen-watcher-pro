@@ -1,4 +1,4 @@
-"""Xác thực người dùng và kiểm tra quyền (RBAC)."""
+"""User authentication and permission checks (RBAC)."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ _PBKDF2_ITERATIONS = 100_000
 
 
 def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
-    """Trả về (password_hash_hex, salt_hex). Dùng PBKDF2-HMAC-SHA256."""
+    """Return (password_hash_hex, salt_hex). Uses PBKDF2-HMAC-SHA256."""
     if salt is None:
         salt_bytes = os.urandom(16)
     else:
@@ -48,14 +48,14 @@ class AuthService:
         self.repo = repo
 
     def login(self, username: str, password: str) -> CurrentUser:
-        """Đăng nhập. Raise ValueError với thông báo tiếng Việt nếu thất bại."""
+        """Log in. Raises ValueError with a message if it fails."""
         user = self.repo.get_user_by_username(username.strip())
         if user is None:
-            raise ValueError("Tài khoản không tồn tại.")
+            raise ValueError("Account does not exist.")
         if not user["is_active"]:
-            raise ValueError("Tài khoản đã bị vô hiệu hóa.")
+            raise ValueError("This account has been disabled.")
         if not verify_password(password, user["salt"], user["password_hash"]):
-            raise ValueError("Mật khẩu không đúng.")
+            raise ValueError("Incorrect password.")
 
         role_row = None
         if user["role_id"]:
@@ -73,5 +73,5 @@ class AuthService:
             permissions=perms,
         )
         self.repo.add_audit(current.id, "login", f"role={current.role_name}")
-        logger.info("Đăng nhập: %s (role=%s)", current.username, current.role_name)
+        logger.info("Login: %s (role=%s)", current.username, current.role_name)
         return current

@@ -1,4 +1,4 @@
-"""OCR ảnh bằng Qwen3-VL qua OpenRouter (tái sử dụng từ main_qwen_ocr.py)."""
+"""OCR an image with Qwen3-VL via OpenRouter (reused from main_qwen_ocr.py)."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class OcrResult:
 
 
 def _get_client() -> OpenAI:
-    """Khởi tạo OpenAI client trỏ tới OpenRouter (lazy, dùng lại)."""
+    """Initialize an OpenAI client pointed at OpenRouter (lazy, reused)."""
     global _client
     if not config.OPENROUTER_API_KEY:
         raise RuntimeError(
@@ -50,12 +50,12 @@ def _get_client() -> OpenAI:
 
 
 def _encode_image(image_path: Path) -> str:
-    """Đọc ảnh, resize nếu quá lớn, trả về data URL base64 PNG."""
+    """Read the image, resize if too large, and return a base64 PNG data URL."""
     img = Image.open(image_path)
     if config.OCR_MAX_IMAGE_DIM and max(img.size) > config.OCR_MAX_IMAGE_DIM:
         img = img.copy()
         img.thumbnail((config.OCR_MAX_IMAGE_DIM, config.OCR_MAX_IMAGE_DIM))
-        logger.info("Resize ảnh về %dx%d trước khi OCR.", img.width, img.height)
+        logger.info("Resized image to %dx%d before OCR.", img.width, img.height)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="PNG")
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
@@ -63,10 +63,10 @@ def _encode_image(image_path: Path) -> str:
 
 
 def ocr_image(image_path: Path) -> OcrResult:
-    """Gửi ảnh tới Qwen3-VL để OCR, trả về OcrResult."""
+    """Send the image to Qwen3-VL for OCR and return an OcrResult."""
     client = _get_client()
     model = config.MODEL_NAME
-    logger.info("Gửi ảnh tới Qwen3-VL (%s) để OCR...", model)
+    logger.info("Sending image to Qwen3-VL (%s) for OCR...", model)
     t0 = time.perf_counter()
 
     data_url = _encode_image(Path(image_path))
@@ -95,5 +95,5 @@ def ocr_image(image_path: Path) -> OcrResult:
         prompt_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
         completion_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
     )
-    logger.info("Nhận OCR sau %dms (%d ký tự).", elapsed_ms, result.char_count)
+    logger.info("Received OCR after %dms (%d characters).", elapsed_ms, result.char_count)
     return result
