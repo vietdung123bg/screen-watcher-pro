@@ -84,8 +84,11 @@ class UsersTab(ttk.Frame):
         if not pwd:
             return
         h, s = hash_password(pwd)
-        self.ctx.repo.update_user_password(uid, h, s)
-        messagebox.showinfo("Done", "Password has been reset.")
+        # Force the user to set their own password on the next sign-in.
+        self.ctx.repo.update_user_password(uid, h, s, must_change_password=True)
+        self.ctx.repo.add_audit(self.ctx.current_user.id, "user.reset_password", str(uid))
+        messagebox.showinfo(
+            "Done", "Password has been reset. The user must change it at next sign-in.")
 
     def _toggle_active(self) -> None:
         uid = self._selected_id()

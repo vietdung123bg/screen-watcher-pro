@@ -77,6 +77,9 @@ bằng chứng kiểm tra).
 
 ### Quản trị (admin)
 - Quản lý người dùng: thêm, đổi vai trò, reset mật khẩu, bật/tắt, xóa.
+- **Bắt buộc đổi mật khẩu lần đầu**: tài khoản **admin mặc định** (và bất kỳ user nào
+  vừa được tạo / vừa bị reset mật khẩu) sẽ **bị buộc đổi mật khẩu ngay sau khi đăng nhập**
+  trước khi vào được app — tránh để mật khẩu mặc định `admin123` tồn tại lâu dài.
 - Tab **⚙ Rules & Email**: xem rule đang nạp + trạng thái cấu hình email + gửi thử email.
 
 ### Phân quyền (RBAC)
@@ -118,12 +121,13 @@ screen-watcher-pro/
 │   │   ├── database.py             # SQLite schema + seed RBAC + admin
 │   │   └── repository.py           # CRUD: user/screenshot/ocr/rule/notif/cooldown
 │   ├── services/
-│   │   ├── auth.py                 # đăng nhập, hash mật khẩu (PBKDF2), quyền
+│   │   ├── auth.py                 # đăng nhập, đổi mật khẩu, hash (PBKDF2), quyền
 │   │   ├── email_service.py        # gửi SMTP (kèm ảnh) + chế độ DRY-RUN
 │   │   ├── notification_service.py # ★ rule→cooldown→email + "decision trace"
 │   │   └── capture_service.py      # điều phối toàn pipeline
 │   └── ui/                         # Tkinter (không cần lib GUI ngoài)
 │       ├── login_window.py
+│       ├── change_password_window.py  # màn hình buộc đổi mật khẩu lần đầu
 │       ├── main_window.py          # notebook, hiện tab theo quyền
 │       ├── capture_tab.py          # chụp & OCR + 5 tab con (preview zoom/OCR/giải thích/email)
 │       ├── history_tab.py          # preview ảnh (zoom) + OCR + giải thích (từ DB)
@@ -157,7 +161,7 @@ cooldown_state   (theo rule_id — chống gửi lặp)
 | Bảng | Vai trò | Cột chính |
 |------|---------|-----------|
 | `roles` / `permissions` / `role_permissions` | RBAC | quan hệ vai trò–quyền (n-n) |
-| `users` | Người dùng | `username, password_hash, salt, role_id, is_active` |
+| `users` | Người dùng | `username, password_hash, salt, role_id, is_active, must_change_password` |
 | `capture_sessions` | Một lần bấm "Chụp & OCR" | `user_id, targets, note` |
 | `screenshots` | Mỗi ảnh (1 target) | `target_app, window_title, file_path, width, height, status, error` |
 | `ocr_results` | OCR text của ảnh | `screenshot_id, model, text, char_count, duration_ms` |
@@ -168,6 +172,8 @@ cooldown_state   (theo rule_id — chống gửi lặp)
 
 - `notifications.status`: `sent` / `simulated` / `skipped_cooldown` / `no_owner` / `send_failed` / `skipped_empty`.
   `subject` + `body` chỉ lưu khi có gửi/mô phỏng/thất bại (để xem lại trong tab *Email đã gửi*).
+- `users.must_change_password`: `1` = buộc đổi mật khẩu ở lần đăng nhập kế tiếp (admin mặc định,
+  user mới tạo, user vừa bị reset). Đổi mật khẩu thành công sẽ tự đặt lại về `0`.
 - Mật khẩu lưu **PBKDF2-HMAC-SHA256 + salt**, không lưu plaintext. Mật khẩu SMTP lấy từ **biến môi trường**, không nằm trong file cấu hình.
 
 ---
@@ -320,7 +326,9 @@ Sửa YAML/`.env` xong nhớ **khởi động lại app**.
 python run.py
 ```
 
-1. **Đăng nhập** (Sign in): `admin` / `admin123` (đổi/thêm user trong tab *User Management*).
+1. **Đăng nhập** (Sign in): `admin` / `admin123`. **Lần đầu đăng nhập, app sẽ buộc bạn
+   đổi mật khẩu** (nhập mật khẩu hiện tại + mật khẩu mới ≥ 6 ký tự) trước khi vào giao diện
+   chính. Sau đó đổi/thêm user trong tab *User Management*.
 2. Tab **📸 Capture & OCR**:
    - Chọn **Chrome** hoặc **Edge** (radio, 1 trình duyệt), tích *Launch the app if it is not running* nếu cần.
    - Bấm **Capture & OCR**. Khu vực kết quả có 5 tab: **📝 Log**, **🖼 Screenshot**,

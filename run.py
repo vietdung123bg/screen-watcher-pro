@@ -15,6 +15,7 @@ from app.db.repository import Repository
 from app.services.auth import AuthService
 from app.services.capture_service import CaptureService
 from app.services.notification_service import NotificationService
+from app.ui.change_password_window import ChangePasswordWindow
 from app.ui.login_window import LoginWindow
 from app.ui.main_window import MainWindow
 
@@ -89,7 +90,15 @@ def main() -> int:
 
     def show_login() -> None:
         ctx.current_user = None
-        LoginWindow(root, ctx, on_success=show_main)
+        LoginWindow(root, ctx, on_success=after_login)
+
+    def after_login() -> None:
+        # Force a password change before reaching the app when flagged
+        # (e.g. the default admin on first sign-in).
+        if ctx.current_user and ctx.current_user.must_change_password:
+            ChangePasswordWindow(root, ctx, on_success=show_main)
+        else:
+            show_main()
 
     def show_main() -> None:
         MainWindow(root, ctx, on_logout=show_login)

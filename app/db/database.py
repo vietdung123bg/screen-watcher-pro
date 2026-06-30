@@ -57,14 +57,15 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    username      TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    salt          TEXT NOT NULL,
-    full_name     TEXT,
-    role_id       INTEGER REFERENCES roles(id),
-    is_active     INTEGER NOT NULL DEFAULT 1,
-    created_at    TEXT NOT NULL
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    username             TEXT UNIQUE NOT NULL,
+    password_hash        TEXT NOT NULL,
+    salt                 TEXT NOT NULL,
+    full_name            TEXT,
+    role_id              INTEGER REFERENCES roles(id),
+    is_active            INTEGER NOT NULL DEFAULT 1,
+    must_change_password INTEGER NOT NULL DEFAULT 0,  -- 1 = force a password change on next sign-in
+    created_at           TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS capture_sessions (
@@ -173,6 +174,20 @@ class Database:
                 if col not in cols:
                     cur.execute(f"ALTER TABLE notifications ADD COLUMN {col} TEXT")
                     logger.info("Migration: added column notifications.%s", col)
+
+            user_cols = {r["name"] for r in cur.execute("PRAGMA table_info(users)")}
+            if "must_change_password" not in user_cols:
+                cur.execute(
+                    "ALTER TABLE users ADD COLUMN must_change_password "
+                    "INTEGER NOT NULL DEFAULT 0"
+                )
+                # On an existing DB, force the built-in admin to set a new password
+                # the next time it signs in (the feature would otherwise only apply
+                # to freshly created databases).
+                cur.execute(
+                    "UPDATE users SET must_change_password = 1 WHERE username = 'admin'"
+                )
+                logger.info("Migration: added column users.must_change_password")
             self.conn.commit()
 
     def _seed_rbac(self) -> None:
@@ -218,11 +233,15 @@ class Database:
                 pwd_hash, salt = hash_password("admin123")
                 cur.execute(
                     "INSERT INTO users(username, password_hash, salt, full_name, "
-                    "role_id, is_active, created_at) VALUES(?, ?, ?, ?, ?, 1, ?)",
+                    "role_id, is_active, must_change_password, created_at) "
+                    "VALUES(?, ?, ?, ?, ?, 1, 1, ?)",
                     ("admin", pwd_hash, salt, "Administrator", admin_role_id,
                      datetime.now().isoformat(timespec="seconds")),
                 )
-                logger.info("Created the default admin account (admin / admin123).")
+                logger.info(
+                    "Created the default admin account (admin / admin123) — "
+                    "must change password on first sign-in."
+                )
 
             self.conn.commit()
 

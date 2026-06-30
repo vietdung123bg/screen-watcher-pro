@@ -62,21 +62,27 @@ class Repository:
         )
 
     def create_user(self, username: str, password_hash: str, salt: str,
-                    full_name: str, role_id: int) -> int:
+                    full_name: str, role_id: int,
+                    must_change_password: bool = True) -> int:
         cur = self._exec(
             "INSERT INTO users(username, password_hash, salt, full_name, role_id, "
-            "is_active, created_at) VALUES(?, ?, ?, ?, ?, 1, ?)",
-            (username, password_hash, salt, full_name, role_id, _now()),
+            "is_active, must_change_password, created_at) VALUES(?, ?, ?, ?, ?, 1, ?, ?)",
+            (username, password_hash, salt, full_name, role_id,
+             1 if must_change_password else 0, _now()),
         )
         return cur.lastrowid
 
     def update_user_role(self, user_id: int, role_id: int) -> None:
         self._exec("UPDATE users SET role_id = ? WHERE id = ?", (role_id, user_id))
 
-    def update_user_password(self, user_id: int, password_hash: str, salt: str) -> None:
+    def update_user_password(self, user_id: int, password_hash: str, salt: str,
+                             must_change_password: bool = False) -> None:
+        """Set a new password. Clears the must-change flag by default (the user just
+        set it), or sets it when an admin resets someone else's password."""
         self._exec(
-            "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?",
-            (password_hash, salt, user_id),
+            "UPDATE users SET password_hash = ?, salt = ?, must_change_password = ? "
+            "WHERE id = ?",
+            (password_hash, salt, 1 if must_change_password else 0, user_id),
         )
 
     def set_user_active(self, user_id: int, active: bool) -> None:

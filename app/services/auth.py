@@ -38,6 +38,7 @@ class CurrentUser:
     full_name: str
     role_name: str
     permissions: set[str] = field(default_factory=set)
+    must_change_password: bool = False
 
     def can(self, permission: str) -> bool:
         return permission in self.permissions
@@ -71,7 +72,31 @@ class AuthService:
             full_name=user["full_name"] or user["username"],
             role_name=role_row["name"] if role_row else "(none)",
             permissions=perms,
+            must_change_password=bool(user["must_change_password"]),
         )
         self.repo.add_audit(current.id, "login", f"role={current.role_name}")
         logger.info("Login: %s (role=%s)", current.username, current.role_name)
         return current
+
+    def change_password(self, user: CurrentUser, current_password: str,
+                        new_password: str) -> None:
+        """Change the signed-in user's own password after verifying the current one.
+
+        Clears the must-change-password flag. Raises ValueError on any problem.
+        """
+        row = self.repo.get_user(user.id)
+        if row is None:
+            raise ValueError("Account does not exist.")
+        if not verify_password(current_password, row["salt"], row["password_hash"]):
+            raise ValueError("Current password is incorrect.")
+        if len(new_password) < 6:
+            raise ValueError("New password must be at least 6 characters.")
+        if verify_password(new_password, row["salt"], row["password_hash"]):
+            raise ValueError("New password must be different from the current one.")
+
+        new_hash, new_salt = hash_password(new_password)
+        self.repo.update_user_password(user.id, new_hash, new_salt,
+                                       must_change_password=False)
+        user.must_change_password = False
+        self.repo.add_audit(user.id, "password.change", "self-service change")
+        logger.info("Password changed: %s", user.username)

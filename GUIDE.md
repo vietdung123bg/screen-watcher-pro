@@ -89,6 +89,22 @@ Entry point [run.py](run.py) sẽ: tạo thư mục dữ liệu → nạp `rules
 
 Mật khẩu được lưu **băm PBKDF2-HMAC-SHA256 + salt** (không lưu plaintext).
 
+### Buộc đổi mật khẩu lần đầu (Change password)
+Vì lý do bảo mật, một số tài khoản **bắt buộc đổi mật khẩu ngay sau khi đăng nhập** trước khi
+vào được giao diện chính:
+
+- **Tài khoản admin mặc định** (`admin` / `admin123`) — để mật khẩu mặc định không tồn tại lâu.
+- **User vừa được admin tạo** trong tab *User Management*.
+- **User vừa bị admin reset mật khẩu**.
+
+Màn hình **Change password** yêu cầu:
+1. **Current password** — mật khẩu hiện tại (vừa dùng để đăng nhập).
+2. **New password** — mật khẩu mới **≥ 6 ký tự** và **khác** mật khẩu hiện tại.
+3. **Confirm new password** — gõ lại để khớp.
+
+Đổi thành công → app mở thẳng giao diện chính; cờ buộc-đổi được gỡ nên các lần đăng nhập
+sau không hỏi lại. (Trong DB: cột `users.must_change_password` chuyển từ `1` về `0`.)
+
 ### 3 vai trò có sẵn
 
 | Vai trò | Quyền | Nhìn thấy dữ liệu |
@@ -346,9 +362,11 @@ Chỉ hiện với **admin** (`user.manage`). Bảng cột: **ID, Username, Full
 
 Thanh nút:
 - **➕ Add user** — mở hộp thoại nhập **Username, Full name, Password, Role**
-  (admin/operator/viewer). Trùng username sẽ báo lỗi.
+  (admin/operator/viewer). Trùng username sẽ báo lỗi. User mới **bị buộc đổi mật khẩu** ở
+  lần đăng nhập đầu tiên (mật khẩu admin đặt chỉ là tạm thời).
 - **🔑 Change role** — chọn dòng → đổi vai trò.
-- **♺ Reset password** — chọn dòng → nhập mật khẩu mới (ẩn ký tự).
+- **♺ Reset password** — chọn dòng → nhập mật khẩu mới (ẩn ký tự). Mật khẩu này là **tạm thời**:
+  user sẽ **bị buộc tự đổi** ở lần đăng nhập kế tiếp.
 - **⏻ Enable/disable** — bật/tắt tài khoản (tài khoản tắt không đăng nhập được).
 - **🗑 Delete** — xóa tài khoản (có xác nhận).
 - **⟳ Refresh** — tải lại danh sách.
