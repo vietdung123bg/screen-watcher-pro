@@ -3,3 +3,9 @@ Pillow>=10.0.0
 python-dotenv>=1.0.0
 pywin32>=306
 PyYAML>=6.0
+
+# ---- AI chat feature (components C–G) ----
+fastapi>=0.110.0
+uvicorn>=0.27.0
+requests>=2.31.0
+ipywidgets>=8.0.0
