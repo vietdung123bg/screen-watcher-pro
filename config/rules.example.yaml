@@ -66,6 +66,13 @@ ai:
   timeout_seconds: 60
   mock: true               # true -> canned reply (demo/testing, no real provider needed)
 
+# ---- Watcher API auth (JWT) ----
+# The signing secret comes from .env (WATCHER_JWT_SECRET), never here.
+auth:
+  access_token_minutes: 60     # JWT lifetime
+  allow_self_register: true    # public POST /api/auth/register (set false to disable)
+  self_register_role: viewer   # role for self-registered users (never 'admin')
+
 # ---- Default cooldown ----
 # enabled: true  -> cooldown ON  (BR04: a matched rule won't re-send within its window)
 # enabled: false -> cooldown OFF (for TESTING: a matched rule ALWAYS sends, ignores the wait)

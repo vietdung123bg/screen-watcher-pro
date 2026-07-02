@@ -15,6 +15,14 @@ data/ocr_results/
 data/*.db
 logs/
 
+# ===== DB backups (e.g. auto-created by the UUID migration) =====
+*.bak
+data/*.bak
+*.pre-uuid.bak
+
+# ===== Claude Code local tooling / session state =====
+.claude/
+
 # ===== Local config with real credentials / personal emails =====
 # Copy config/rules.example.yaml -> config/rules.yaml and fill in your own values.
 config/rules.yaml

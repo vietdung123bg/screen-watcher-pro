@@ -92,7 +92,7 @@ class HistoryTab(ttk.Frame):
         sel = self.tree.selection()
         if not sel:
             return
-        screenshot_id = int(sel[0])
+        screenshot_id = sel[0]          # UUID string (tree iid)
         shot = self.ctx.repo.get_screenshot(screenshot_id)
         if shot is None:
             return

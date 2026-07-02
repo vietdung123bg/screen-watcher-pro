@@ -161,9 +161,9 @@ cooldown_state   (theo rule_id — chống gửi lặp)
 | Bảng | Vai trò | Cột chính |
 |------|---------|-----------|
 | `roles` / `permissions` / `role_permissions` | RBAC | quan hệ vai trò–quyền (n-n) |
-| `users` | Người dùng | `username, password_hash, salt, role_id, is_active, must_change_password` |
+| `users` | Người dùng | `id (UUIDv7, TEXT), username, password_hash, salt, full_name, email, first_name, last_name, phone, role_id, is_active, must_change_password, deleted_at` |
 | `capture_sessions` | Một lần bấm "Chụp & OCR" | `user_id, targets, note` |
-| `screenshots` | Mỗi ảnh (1 target) | `target_app, window_title, file_path, width, height, status, error` |
+| `screenshots` | Mỗi ảnh (1 target) = 1 execution | `id (UUIDv7), target_app, window_title, file_path, width, height, status, error, deleted_at` |
 | `ocr_results` | OCR text của ảnh | `screenshot_id, model, text, char_count, duration_ms` |
 | `rule_evaluations` | Kết quả từng rule trên 1 ảnh | `rule_id, matched, severity, owner_group, reason, matched_terms` |
 | `notifications` | Quyết định gửi cho rule khớp + nội dung email | `rule_id, recipients, status, reason, subject, body` |
@@ -175,6 +175,7 @@ cooldown_state   (theo rule_id — chống gửi lặp)
 - `users.must_change_password`: `1` = buộc đổi mật khẩu ở lần đăng nhập kế tiếp (admin mặc định,
   user mới tạo, user vừa bị reset). Đổi mật khẩu thành công sẽ tự đặt lại về `0`.
 - Mật khẩu lưu **PBKDF2-HMAC-SHA256 + salt**, không lưu plaintext. Mật khẩu SMTP lấy từ **biến môi trường**, không nằm trong file cấu hình.
+- **Tất cả khóa chính đều là UUIDv7** (users, screenshots/`execution_id`, ocr_results, capture_sessions, rule_evaluations, notifications, audit_logs, roles, permissions) — time-ordered nên index locality tốt, gần như tuần tự (nhanh như autoincrement) mà vẫn duy nhất toàn cục; mọi FK là TEXT. DB cũ (id INTEGER) sẽ **tự migrate sang UUID khi khởi động** (tự tạo backup `screenwatcher.db.pre-uuid.bak`, remap toàn bộ FK).
 
 ---
 
@@ -344,6 +345,7 @@ python run.py
 5. Tab **📧 Sent Emails**: danh sách email đã gửi/mô phỏng/thất bại → chọn 1 dòng để xem
    toàn bộ nội dung (tiêu đề, người nhận, lý do, body), hoặc bấm **✉ Resend**.
 6. Tab **👥 User Management** (admin).
+7. Tab **🚀 API Server** (admin): bật/tắt server REST API ngay trong app (nút *Start/Stop*), mở nhanh Swagger `/docs`. Server chạy tiến trình riêng, tự tắt khi thoát app.
 
 ### Demo cooldown nhanh
 Mở một trang có chữ `ERROR` hoặc `Daily Sync Failed`, chụp Chrome **2 lần liên tiếp**:
@@ -373,6 +375,88 @@ và mix) để test nhanh — mở bằng Chrome/Edge rồi chụp. Xem [test_pa
 | Muốn xem rule khớp mà không gửi mail thật | Để `email.enabled: false` (DRY-RUN). |
 | Muốn test gửi mail nhiều lần, không bị cooldown chặn | Đặt `cooldown.enabled: false` trong `config/rules.yaml` rồi khởi động lại (rule khớp sẽ luôn gửi). Đặt lại `true` để bật BR04. |
 | Quên mật khẩu admin | Xóa `data/screenwatcher.db` (mất dữ liệu cũ) để tạo lại admin mặc định. |
+
+---
+
+## 7.1. AI Chat & Watcher API (server FastAPI)
+
+Ngoài app desktop, dự án có một **HTTP server** (`app/ai/`) cung cấp REST API: xác thực JWT,
+quản lý user, chatbot hỏi–đáp và điều khiển/tra cứu watcher. Chạy **song song được** với app
+desktop (đọc kết quả read-only; login/tạo–xóa/quản lý user ghi qua một connection riêng).
+
+**Chạy server** — 2 cách:
+- Trong app desktop: mở tab **🚀 API Server** → bấm **Start** (khuyến nghị, không cần dòng lệnh).
+- Hoặc dòng lệnh (bắt buộc 1 worker vì conversation store in-memory):
+
+```powershell
+uvicorn app.ai.chat_server:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+> Cần có mục `ai:` trong `config/rules.yaml` (provider `azure`/`llama`, `model`, `mock`).
+> Để `mock: true` sẽ chạy được ngay mà không cần API key hay OpenCode CLI. Docs tương tác
+> tại <http://127.0.0.1:8000/docs>.
+
+### Xác thực & phân quyền (JWT)
+
+API dùng **JWT Bearer token**, tái dùng đúng hệ thống RBAC (users/roles) của app desktop.
+
+1. Chưa có tài khoản? **Tự đăng ký**: `POST /api/auth/register` (tạo user non-admin, trả luôn JWT). Hoặc nhờ admin tạo qua `POST /api/admin/users`.
+2. Đăng nhập lấy token: `POST /api/auth/login` với `{"username","password"}` (mặc định `admin`/`admin123`).
+3. Gửi kèm header `Authorization: Bearer <access_token>` cho mọi endpoint được bảo vệ.
+
+Endpoint được đặt tên theo **REST convention**, gom nhóm theo domain (Swagger `/docs` hiển thị tách nhóm): `auth` · `user` (self-service) · `admin` (quản lý user) · `watcher` (resource `executions`) · `chat`.
+
+**Phân quyền theo 2 vai trò:**
+- **User** (mọi tài khoản đăng nhập): toàn quyền như admin — chat, xem kết quả, trigger chụp — **trừ xóa**. Về tài khoản: chỉ tự quản lý **acc của mình** (`/api/user/*`: xem/sửa thông tin, đổi mật khẩu).
+- **Admin** (role `admin`): thêm quyền **xóa** (soft delete, đánh dấu `deleted_at`, ẩn khỏi kết quả) và **quản lý user** (`/api/admin/users`: tạo/xem/sửa/soft-delete, reset mật khẩu, gán role).
+
+> Secret ký JWT lấy từ `.env` (`WATCHER_JWT_SECRET`). Nếu để trống sẽ dùng secret dev **không an toàn** (chỉ demo localhost). Sinh secret: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Thời hạn token cấu hình ở `config/rules.yaml` mục `auth.access_token_minutes` (mặc định 60 phút).
+
+**Các endpoint:**
+
+| Nhóm | Method | Endpoint | Quyền | Mục đích |
+|------|--------|----------|-------|----------|
+| System | GET | `/health` | công khai | Kiểm tra server sống + cấu hình provider (không lộ key). |
+| Auth | POST | `/api/auth/register` | công khai | **Tự đăng ký** (chưa có tài khoản). Tạo user non-admin + tự đăng nhập (trả JWT). Body: `{"username","password","email?","first_name?","last_name?","phone?","full_name?"}`. Tắt được bằng `auth.allow_self_register:false`. |
+| Auth | POST | `/api/auth/login` | công khai | Đăng nhập → trả `access_token` (JWT) + thông tin user. |
+| User | GET | `/api/user/profile` | user/admin | Xem thông tin tài khoản của **chính mình** (username, email, first/last name, phone, role...). |
+| User | PUT | `/api/user/profile` | user/admin | Sửa thông tin của mình: `username`/`full_name`/`email`/`first_name`/`last_name`/`phone` (chỉ field gửi lên). **Không** đổi được `role`/`is_active` của mình. |
+| User | POST | `/api/user/change-password` | user/admin | Đổi mật khẩu của mình. Body: `{"current_password","new_password"}`. |
+| Admin | GET | `/api/admin/users` | **admin** | Liệt kê user (ẩn user đã soft-delete). |
+| Admin | GET | `/api/admin/users/{id}` | **admin** | Xem 1 user. |
+| Admin | POST | `/api/admin/users` | **admin** | Tạo user. Body: `{"username","password","role","email?","first_name?","last_name?","phone?","full_name?"}` (role: `admin`/`operator`/`viewer`). |
+| Admin | PUT | `/api/admin/users/{id}` | **admin** | Cập nhật user: `username`/`full_name`/`email`/`first_name`/`last_name`/`phone`/`role`/`is_active`/`new_password` (chỉ field gửi lên). |
+| Admin | DELETE | `/api/admin/users/{id}` | **admin** | **Soft delete** user thường. Tài khoản **admin không xóa được** (403 "You cannot delete admin account"). |
+| AI Chat | POST | `/api/chat` | user/admin | Hỏi–đáp AI; tự nhét context watcher mới nhất vào prompt. Body: `{"message":"...","session_id":"..."}`. |
+| Watcher | POST | `/api/watcher/executions` | user/admin | **Trigger app thật**: chụp → OCR → rule → email. Body: `{"targets":["chrome","edge"],"launch":false}`. Trả execution_id mỗi target. ⚠ Chạy trên máy Windows đang mở trình duyệt đích. |
+| Watcher | GET | `/api/watcher/executions/latest` | user/admin | Kết quả execution **mới nhất**. **User thường chỉ thấy của mình**, admin thấy của tất cả. `has_data:false` khi chưa có. |
+| Watcher | GET | `/api/watcher/executions/{id}` | user/admin | Chi tiết/audit 1 execution (thêm `file_path`, `status`). **User chỉ xem execution của mình** (của người khác → **403**), admin xem tất cả. **404** nếu không tồn tại/đã xóa. |
+| Watcher | DELETE | `/api/watcher/executions/{id}` | **admin** | **Soft delete** 1 execution (`deleted_at`). User thường → **403**. |
+
+> `execution_id` chính là `screenshot_id` — không phát sinh khoá mới, tái dùng schema có sẵn.
+> Các endpoint đọc dùng connection **read-only**; `login`, tạo/xóa execution, quản lý user dùng chung 1 connection **ghi**.
+
+**Lỗi & validate:** dữ liệu sai định dạng trả **422** với JSON rõ ràng nêu đúng field lỗi:
+```json
+{"status":"error","error_code":"VALIDATION_ERROR",
+ "message":"Dữ liệu không hợp lệ — email: Email không hợp lệ...",
+ "fields":[{"field":"email","message":"..."}]}
+```
+Quy tắc: `email` phải đúng định dạng (`user@example.com`), `phone` 6–20 ký tự (số/`+ - ( )`/space), `password`/`new_password` ≥ 6 ký tự, `username` ≥ 3 ký tự, `role` ∈ {`admin`,`operator`,`viewer`}. Trên Swagger `/docs`, mỗi API đã có **ví dụ hợp lệ điền sẵn** — bấm *Try it out* là chạy được ngay (không còn `"string"` gây lỗi).
+
+**Mã lỗi thường gặp:** `401 UNAUTHENTICATED` (thiếu token), `401 TOKEN_EXPIRED`/`INVALID_TOKEN`, `403 FORBIDDEN` với message **"You don't have permission to access action."** (không đủ quyền), `409 CONFLICT` (username trùng), `422 VALIDATION_ERROR` (sai định dạng). Mọi khóa chính (`id`, `execution_id`...) là **UUIDv7** — xem [mục 3](#3-thực-thể-quản-lý-database--sqlite).
+
+**Client Jupyter chatbox:**
+
+```powershell
+jupyter notebook notebooks/chatbox.ipynb
+```
+
+```python
+from app.ai.chatbox import launch_chatbox
+# đăng nhập tự động để lấy JWT rồi mở chatbox
+launch_chatbox("http://127.0.0.1:8000", username="admin", password="admin123")
+```
 
 ---
 

@@ -20,7 +20,7 @@ class TargetResult:
     target: str                # 'chrome' / 'edge'
     label: str                 # 'Google Chrome' ...
     status: str                # 'success' / 'failed'
-    screenshot_id: int | None = None
+    screenshot_id: str | None = None
     file_path: str | None = None
     window_title: str | None = None
     ocr_text: str = ""

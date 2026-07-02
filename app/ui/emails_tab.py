@@ -82,9 +82,9 @@ class EmailListView(ttk.Frame):
         self.body.config(state="disabled")
 
     # ---------- interaction ----------
-    def _selected_id(self) -> int | None:
+    def _selected_id(self) -> str | None:
         sel = self.tree.selection()
-        return int(sel[0]) if sel else None
+        return sel[0] if sel else None
 
     def _on_select(self, _event=None) -> None:
         nid = self._selected_id()

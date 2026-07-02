@@ -24,6 +24,8 @@ người dùng).
 10. [Tab 👥 User Management — Quản lý người dùng](#10-tab--user-management--quản-lý-người-dùng)
 11. [Luồng quyết định gửi email & Cooldown](#11-luồng-quyết-định-gửi-email--cooldown)
 12. [Xử lý sự cố nhanh](#12-xử-lý-sự-cố-nhanh)
+13. [Tab 🚀 API Server — mở REST API](#13-tab--api-server--mở-rest-api)
+14. [REST API (cho client ngoài)](#14-rest-api-cho-client-ngoài)
 
 ---
 
@@ -142,8 +144,9 @@ Sau khi đăng nhập là **cửa sổ chính**:
 | **⚙ Rules & Email** | `rule.view` | Xem rule đang nạp + trạng thái email + gửi thử |
 | **📧 Sent Emails** | `rule.view` | Danh sách email đã gửi/mô phỏng/thất bại + gửi lại |
 | **👥 User Management** | `user.manage` | Quản lý người dùng (chỉ admin) |
+| **🚀 API Server** | `user.manage` | Bật/tắt REST API server ngay trong app (chỉ admin) |
 
-Ví dụ: `admin` thấy đủ 5 tab; `operator` thấy 4 tab (trừ User Management);
+Ví dụ: `admin` thấy đủ 6 tab; `operator` thấy 4 tab (trừ User Management & API Server);
 `viewer` thấy History & Results, Rules & Email, Sent Emails (không chụp được).
 
 ---
@@ -422,3 +425,96 @@ Mở trang có chữ `ERROR` (hoặc `Daily Sync Failed`), chụp **2 lần liê
 | Muốn **test gửi mail nhiều lần** không bị cooldown chặn | Đặt `cooldown.enabled: false`, khởi động lại. |
 | Quên mật khẩu admin | Xóa `data/screenwatcher.db` (mất dữ liệu cũ) để tạo lại admin mặc định. |
 | Sửa `rules.yaml`/`.env` không thấy đổi | **Khởi động lại app** — cấu hình chỉ nạp lúc chạy. |
+
+---
+
+## 13. Tab 🚀 API Server — mở REST API
+
+Chỉ hiện với **admin** (`user.manage`). Cho phép **bật/tắt server REST API** ngay trong app,
+không cần gõ dòng lệnh.
+
+- **Host / Port** — mặc định `127.0.0.1` / `8000`.
+- **▶ Start server** — khởi động API (chạy **tiến trình con** riêng, 1 worker). Trạng thái đổi
+  thành **● Running** kèm URL.
+- **■ Stop** — dừng server.
+- **🌐 Open API docs** — mở Swagger UI (`/docs`) trên trình duyệt để thử API trực tiếp.
+
+Ghi chú:
+- Server chạy **tiến trình riêng** nên không treo app; **tự tắt khi bạn thoát app**.
+- Đọc/ghi **cùng `data/screenwatcher.db`** với app (mở connection riêng) — chạy song song được.
+- Log server ghi vào `logs/api_server.log`.
+- Cần mục `ai:` trong `config/rules.yaml` (để `mock: true` là chạy được ngay, không cần API key).
+
+---
+
+## 14. REST API (cho client ngoài)
+
+Server FastAPI (`app/ai/`) cung cấp REST API cho client ngoài (Jupyter, script, web…), tái dùng
+đúng RBAC của app. Bật qua tab **🚀 API Server** hoặc dòng lệnh:
+
+```powershell
+uvicorn app.ai.chat_server:app --host 127.0.0.1 --port 8000 --workers 1
+```
+Tài liệu tương tác: **http://127.0.0.1:8000/docs** (mỗi API có ví dụ hợp lệ điền sẵn).
+
+### 14.1. Xác thực bằng JWT
+1. **Chưa có tài khoản** → tự đăng ký: `POST /api/auth/register` (tạo user thường, trả luôn token).
+2. **Đăng nhập**: `POST /api/auth/login` với `{"username","password"}` (mặc định `admin`/`admin123`).
+3. Gắn header **`Authorization: Bearer <access_token>`** cho mọi endpoint được bảo vệ.
+
+Secret ký token lấy từ `.env` (`WATCHER_JWT_SECRET`); thời hạn ở `config/rules.yaml`
+(`auth.access_token_minutes`, mặc định 60 phút).
+
+### 14.2. Phân quyền (admin vs user)
+- **User** (mọi tài khoản đăng nhập): chat, xem/trigger watcher, tự sửa hồ sơ & đổi mật khẩu
+  **của mình** — **KHÔNG** xóa, **KHÔNG** đổi `role`/`is_active` của mình, **KHÔNG** quản lý user khác.
+- **Admin**: thêm quyền **xóa** (soft delete) và **quản lý mọi user**.
+- Không đủ quyền → **403** với message **"You don't have permission to access action."**
+- **Xem screenshot/OCR**: user chỉ thấy execution **do chính mình chụp**; admin thấy **tất cả**.
+
+### 14.3. Danh sách endpoint
+
+| Nhóm | Method | Endpoint | Quyền |
+|------|--------|----------|-------|
+| system | GET | `/health` | công khai |
+| auth | POST | `/api/auth/register` | công khai |
+| auth | POST | `/api/auth/login` | công khai |
+| user | GET · PUT | `/api/user/profile` | user/admin (của mình) |
+| user | POST | `/api/user/change-password` | user/admin (của mình) |
+| admin | GET | `/api/admin/users` · `/api/admin/users/{id}` | admin |
+| admin | POST | `/api/admin/users` | admin |
+| admin | PUT | `/api/admin/users/{id}` | admin |
+| admin | DELETE | `/api/admin/users/{id}` | admin (không xóa được tài khoản admin) |
+| ai-chat | POST | `/api/chat` | user/admin |
+| watcher | POST | `/api/watcher/executions` | user/admin (trigger chụp thật) |
+| watcher | GET | `/api/watcher/executions/latest` | user/admin (user: của mình) |
+| watcher | GET | `/api/watcher/executions/{id}` | user/admin (user: của mình) |
+| watcher | DELETE | `/api/watcher/executions/{id}` | admin (soft delete) |
+
+> Chi tiết body/mục đích từng endpoint: xem [README.md mục 7.1](README.md).
+
+### 14.4. Khóa chính UUID
+Mọi `id` (kể cả `execution_id`) là **UUIDv7** (chuỗi, time-ordered). DB cũ (id INTEGER) sẽ
+**tự migrate** sang UUID khi khởi động (tạo backup `screenwatcher.db.pre-uuid.bak`, giữ nguyên dữ liệu).
+
+### 14.5. Ví dụ nhanh (PowerShell)
+```powershell
+# đăng nhập admin -> lấy access_token
+curl.exe -X POST http://127.0.0.1:8000/api/auth/login -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin123\"}"
+
+$T = "PASTE_ACCESS_TOKEN"
+curl.exe http://127.0.0.1:8000/api/user/profile -H "Authorization: Bearer $T"
+curl.exe http://127.0.0.1:8000/api/watcher/executions/latest -H "Authorization: Bearer $T"
+curl.exe -X POST http://127.0.0.1:8000/api/watcher/executions -H "Authorization: Bearer $T" -H "Content-Type: application/json" -d "{\"targets\":[\"chrome\"]}"
+```
+
+### 14.6. Chatbox Jupyter
+```powershell
+jupyter notebook notebooks/chatbox.ipynb
+```
+```python
+from app.ai.chatbox import launch_chatbox
+launch_chatbox("http://127.0.0.1:8000", username="admin", password="admin123")
+```
+Lỗi validate trả **422** với JSON nêu rõ field sai; lỗi/mã trạng thái khác xem
+[README.md mục 7.1](README.md).

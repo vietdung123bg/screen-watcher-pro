@@ -45,9 +45,10 @@ class UsersTab(ttk.Frame):
                 u["role_name"] or "", "✔" if u["is_active"] else "✖",
             ))
 
-    def _selected_id(self) -> int | None:
+    def _selected_id(self) -> str | None:
+        # The tree iid is the user's UUID string id — do NOT int() it.
         sel = self.tree.selection()
-        return int(sel[0]) if sel else None
+        return sel[0] if sel else None
 
     def _add_user(self) -> None:
         UserDialog(self, self.ctx, on_saved=self.refresh)

@@ -33,7 +33,7 @@ def verify_password(password: str, salt_hex: str, hash_hex: str) -> bool:
 
 @dataclass
 class CurrentUser:
-    id: int
+    id: str          # user primary key (UUIDv7 string)
     username: str
     full_name: str
     role_name: str
@@ -52,6 +52,8 @@ class AuthService:
         """Log in. Raises ValueError with a message if it fails."""
         user = self.repo.get_user_by_username(username.strip())
         if user is None:
+            raise ValueError("Account does not exist.")
+        if "deleted_at" in user.keys() and user["deleted_at"]:
             raise ValueError("Account does not exist.")
         if not user["is_active"]:
             raise ValueError("This account has been disabled.")

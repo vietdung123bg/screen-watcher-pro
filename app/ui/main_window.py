@@ -7,6 +7,7 @@ from tkinter import ttk
 
 from app.context import AppContext
 from app.ui import clear_widget
+from app.ui.api_tab import ApiServerTab
 from app.ui.capture_tab import CaptureTab
 from app.ui.emails_tab import EmailsTab
 from app.ui.history_tab import HistoryTab
@@ -64,6 +65,10 @@ class MainWindow:
 
         if user.can("user.manage"):
             nb.add(UsersTab(nb, self.ctx), text="  👥  User Management  ")
+
+        # API server control (admin only — starts the REST API for external clients)
+        if user.can("user.manage"):
+            nb.add(ApiServerTab(nb, self.ctx), text="  🚀  API Server  ")
 
         # If no tab (no permissions) show a notice
         if not nb.tabs():
