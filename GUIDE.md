@@ -516,6 +516,24 @@ Secret ký token lấy từ `.chatbot.env` (`WATCHER_JWT_SECRET`); thời hạn 
 - Không đủ quyền → **403** với message **"You don't have permission to access action."**
 - **Xem screenshot/OCR**: user chỉ thấy execution **do chính mình chụp**; admin thấy **tất cả**.
 
+### 14.2b. Bảng tool của chatbot & quyền
+
+Trợ lý AI gọi các **tool** để truy vấn/thao tác DB, mỗi tool **tự kiểm quyền theo người hỏi**
+(định nghĩa trong `app/ai/chat_agent.py`). Tool bị chặn → chatbot trả *"You don't have permission
+to perform this action."* ("admin" = role `admin` hoặc có quyền `user.manage`):
+
+| Tool | Mục đích | Tham số | User | Admin | Endpoint tương ứng |
+|------|----------|---------|:--:|:--:|----------|
+| `get_my_profile` | Hồ sơ của chính mình | — | ✅ | ✅ | `GET /api/user/profile` |
+| `get_latest_watcher_result` | KQ watcher mới nhất (user: của mình; admin: tất cả) | — | ✅ | ✅ | `GET /api/watcher/executions/latest` |
+| `get_execution` | Xem 1 execution (user: chỉ của mình; admin: bất kỳ) | `execution_id` | ✅ | ✅ | `GET /api/watcher/executions/{id}` |
+| `trigger_capture` | Chụp + OCR + rule | `targets`, `launch` | ✅ | ✅ | `POST /api/watcher/executions` |
+| `list_users` | Liệt kê tất cả user | — | ❌ | ✅ | `GET /api/admin/users` |
+| `get_user` | Xem 1 user theo username | `username` | ❌ | ✅ | `GET /api/admin/users/{id}` |
+| `create_user` | Tạo user mới + gán role | `username`, `password`, `role?`, `email?`… | ❌ | ✅ | `POST /api/admin/users` |
+| `delete_user` | Soft-delete user (không xóa admin) | `username` | ❌ | ✅ | `DELETE /api/admin/users/{id}` |
+| `delete_execution` | Soft-delete 1 execution | `execution_id` | ❌ | ✅ | `DELETE /api/watcher/executions/{id}` |
+
 ### 14.3. Danh sách endpoint
 
 | Nhóm | Method | Endpoint | Quyền |
