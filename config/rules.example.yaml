@@ -56,6 +56,16 @@ email:
   from: your-verified-sender@example.com     # must be a VERIFIED sender
   password_env: WATCHER_SMTP_PASSWORD        # the SMTP key/password lives in .env
 
+# ---- AI chat (component D / FR04) ----
+# Switch provider by editing THIS section only — no code changes.
+# API keys live in .env (AZURE_OPENAI_API_KEY / LLAMA_API_KEY), never here.
+ai:
+  provider: azure          # azure | llama
+  model: gpt-4o-mini       # bare model name; the provider prefix is added automatically
+  working_dir: .           # safe cwd for the opencode subprocess
+  timeout_seconds: 60
+  mock: true               # true -> canned reply (demo/testing, no real provider needed)
+
 # ---- Default cooldown ----
 # enabled: true  -> cooldown ON  (BR04: a matched rule won't re-send within its window)
 # enabled: false -> cooldown OFF (for TESTING: a matched rule ALWAYS sends, ignores the wait)
