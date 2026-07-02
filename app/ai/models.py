@@ -1,55 +1,72 @@
-"""Shared AI data models. Kept provider-agnostic so the server and the client
-only ever depend on this, never on subprocess/CLI details."""
+"""Shared AI data models. Kept provider-agnostic so the server and clients only
+depend on this, never on the LLM SDK details."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
-# ---- Error codes returned by the CLI adapter (C). ----
-# The adapter NEVER raises to callers; every failure is one of these codes.
+# ---- Result status / error codes ----
 OK = "OK"
-OPENCODE_TIMEOUT = "OPENCODE_TIMEOUT"        # subprocess exceeded the timeout
-OPENCODE_NOT_FOUND = "OPENCODE_NOT_FOUND"    # `opencode` binary is not installed / not on PATH
-OPENCODE_ERROR = "OPENCODE_ERROR"            # CLI ran but exited non-zero
-BAD_WORKING_DIR = "BAD_WORKING_DIR"          # ai.working_dir is missing / not a directory
+CONFIG_ERROR = "CONFIG_ERROR"        # missing API key / bad provider setup (set env & retry)
+PROVIDER_ERROR = "PROVIDER_ERROR"    # LLM provider returned an error
+TIMEOUT = "TIMEOUT"                  # request exceeded ai.timeout_seconds
+RATE_LIMITED = "RATE_LIMITED"        # 429 from provider
+TOOL_ERROR = "TOOL_ERROR"            # a tool the model called failed
+INTERNAL_ERROR = "INTERNAL_ERROR"    # anything unexpected
+
+# Which error codes are worth retrying (spec §10.3 `retryable`).
+_RETRYABLE = {CONFIG_ERROR, PROVIDER_ERROR, TIMEOUT, RATE_LIMITED}
 
 
 @dataclass
 class AIResponse:
-    """Uniform result of one AI turn. `ok=False` -> read `error_code`."""
+    """Uniform result of one chat turn.
 
-    reply: str
+    Serializes to the spec §10.2 (success) / §10.3 (error) shape via to_public_dict().
+    """
+
+    reply: str = ""
     ok: bool = True
     error_code: str = OK
+    message: str = ""                  # human-readable error message (error case)
     latency_ms: int | None = None
-    raw: str | None = None          # raw stderr/stdout, for debugging only (never shown to user)
+    model: str = ""
+    provider: str = ""
+    session_id: str = ""
+    execution_context_used: bool = False
+    retryable: bool = False
+    raw: str | None = None             # debug only — never sent to the client
 
     @classmethod
-    def ok_reply(cls, reply: str, latency_ms: int | None = None) -> "AIResponse":
-        return cls(reply=reply, ok=True, error_code=OK, latency_ms=latency_ms)
+    def success(cls, reply: str, **kw) -> "AIResponse":
+        return cls(reply=reply, ok=True, error_code=OK, **kw)
 
     @classmethod
-    def failure(cls, error_code: str, reply: str = "", raw: str | None = None) -> "AIResponse":
-        return cls(reply=reply, ok=False, error_code=error_code, raw=raw)
+    def failure(cls, error_code: str, message: str, **kw) -> "AIResponse":
+        kw.setdefault("retryable", error_code in _RETRYABLE)
+        return cls(ok=False, error_code=error_code, message=message, reply=message, **kw)
 
     def to_public_dict(self) -> dict:
-        """What the HTTP layer sends to the client. Deliberately drops `raw`
-        (may contain internal paths / stderr) and never leaks secrets."""
+        """What the HTTP layer returns. Drops `raw`; never leaks secrets."""
+        if self.ok:
+            return {
+                "status": "success",
+                "session_id": self.session_id,
+                "reply": self.reply,
+                "model": self.model,
+                "provider": self.provider,
+                "execution_context_used": self.execution_context_used,
+                "latency_ms": self.latency_ms,
+            }
         return {
-            "reply": self.reply,
-            "ok": self.ok,
+            "status": "error",
+            "session_id": self.session_id,
             "error_code": self.error_code,
-            "latency_ms": self.latency_ms,
+            "message": self.message,
+            "retryable": self.retryable,
+            "model": self.model,
+            "provider": self.provider,
         }
-
-
-@dataclass
-class ChatRequest:
-    """Body of POST /chat."""
-
-    message: str
-    session_id: str = "default"
 
 
 @dataclass

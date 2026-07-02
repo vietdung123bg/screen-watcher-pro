@@ -20,9 +20,23 @@ DB_PATH = DATA_DIR / "screenwatcher.db"
 CONFIG_DIR = BASE_DIR / "config"
 RULES_YAML = CONFIG_DIR / "rules.yaml"
 
-load_dotenv(BASE_DIR / ".env")
+# Split env files: OCR key/model, SMTP secret, and chatbot provider config live in
+# separate files. `.env` is still honored as a legacy fallback. Loaded in this order
+# (later wins) so the specific files override the legacy one.
+ENV_FILES = (".env", ".ocr.env", ".smtp.env", ".chatbot.env")
 
-# ---- OCR (Qwen3-VL via OpenRouter) ----
+
+def load_env_files(override: bool = True) -> None:
+    """(Re)load all env files. Called at import and by the chat provider for hot key swaps."""
+    for name in ENV_FILES:
+        p = BASE_DIR / name
+        if p.exists():
+            load_dotenv(p, override=override)
+
+
+load_env_files()
+
+# ---- OCR (Qwen3-VL via OpenRouter) — key + model come from .ocr.env ----
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 MODEL_NAME = os.environ.get("OCR_MODEL", "qwen/qwen3-vl-30b-a3b-instruct").strip()
@@ -90,6 +104,7 @@ def setup_logging() -> logging.Logger:
 
     logger = logging.getLogger("screen_watcher")
     logger.setLevel(logging.INFO)
+    logger.propagate = False   # our handlers only — avoid double lines via root/uvicorn
     if logger.handlers:  # already configured, reuse it
         return logger
 

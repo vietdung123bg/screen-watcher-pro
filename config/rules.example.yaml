@@ -56,15 +56,14 @@ email:
   from: your-verified-sender@example.com     # must be a VERIFIED sender
   password_env: WATCHER_SMTP_PASSWORD        # the SMTP key/password lives in .env
 
-# ---- AI chat (component D / FR04) ----
-# Switch provider by editing THIS section only — no code changes.
-# API keys live in .env (AZURE_OPENAI_API_KEY / LLAMA_API_KEY), never here.
+# ---- AI chat (FR04) ----
+# Provider / model / API key are chosen in .env (PROVIDER + *_API_KEY / *_MODEL /
+# *_ENDPOINT) and re-read on every request. Only non-secret knobs live here:
 ai:
-  provider: azure          # azure | llama
-  model: gpt-4o-mini       # bare model name; the provider prefix is added automatically
-  working_dir: .           # safe cwd for the opencode subprocess
-  timeout_seconds: 60
-  mock: true               # true -> canned reply (demo/testing, no real provider needed)
+  provider: openrouter       # fallback if .env PROVIDER is unset (openrouter|openai|azure_openai|local)
+  timeout_seconds: 120       # per-request timeout (spec: 120-180s)
+  max_context_chars: 6000    # cap watcher context injected into the prompt
+  mock: false                # true -> canned reply (no real LLM needed)
 
 # ---- Watcher API auth (JWT) ----
 # The signing secret comes from .env (WATCHER_JWT_SECRET), never here.
@@ -72,6 +71,11 @@ auth:
   access_token_minutes: 60     # JWT lifetime
   allow_self_register: true    # public POST /api/auth/register (set false to disable)
   self_register_role: viewer   # role for self-registered users (never 'admin')
+
+# ---- API server (spec §16) ----
+server:
+  require_api_token: false     # true -> require X-API-Token (env WATCHER_API_TOKEN) on
+                               # non-public endpoints (recommended when binding beyond 127.0.0.1)
 
 # ---- Default cooldown ----
 # enabled: true  -> cooldown ON  (BR04: a matched rule won't re-send within its window)

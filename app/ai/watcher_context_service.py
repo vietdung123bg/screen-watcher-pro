@@ -1,7 +1,7 @@
 """Watcher context service (E, FR05, T05): read & normalize the LATEST watcher
 result into a context object for the prompt.
 
-Decision (Cách A): read SQLite directly and REUSE the existing schema, rather than
+Decision (Approach A): read SQLite directly and REUSE the existing schema, rather than
 maintaining a second source of truth (data/latest_result.json).
 
 Because the chat server may run in a DIFFERENT process from the GUI, we cannot

@@ -106,7 +106,7 @@ bằng chứng kiểm tra).
 screen-watcher-pro/
 ├── run.py                          # Entry point — nạp config + DB + UI
 ├── requirements.txt
-├── .env.example                    # OPENROUTER_API_KEY + WATCHER_SMTP_PASSWORD
+├── .ocr.env / .smtp.env / .chatbot.env  # secrets (gitignored); *.example đi kèm
 ├── config/
 │   ├── rules.example.yaml          # mẫu cấu hình (commit lên repo)
 │   └── rules.yaml                  # ★ cấu hình thật (gitignored) — copy từ example
@@ -169,6 +169,8 @@ cooldown_state   (theo rule_id — chống gửi lặp)
 | `notifications` | Quyết định gửi cho rule khớp + nội dung email | `rule_id, recipients, status, reason, subject, body` |
 | `cooldown_state` | Lần gửi gần nhất theo rule | `rule_id, owner_group, last_sent_at` |
 | `audit_logs` | Nhật ký hành động | `user_id, action, detail` |
+| `chat_sessions` | Phiên hội thoại chatbot theo user | `id, user_id, title, message_count (denormalized), created_at, updated_at, last_message_at, metadata (JSON), deleted_at` |
+| `chat_messages` | Tin nhắn (chỉ user + assistant cuối) | `id, session_id, user_id, role, content, error_code, metadata (JSON: model/provider/latency), created_at` |
 
 - `notifications.status`: `sent` / `simulated` / `skipped_cooldown` / `no_owner` / `send_failed` / `skipped_empty`.
   `subject` + `body` chỉ lưu khi có gửi/mô phỏng/thất bại (để xem lại trong tab *Email đã gửi*).
@@ -196,13 +198,19 @@ Copy-Item config\rules.example.yaml config\rules.yaml
 # rồi sửa owners/email trong config\rules.yaml theo nhu cầu
 ```
 
-Tạo `.env` (lấy API key OCR MIỄN PHÍ tại <https://openrouter.ai/keys>):
+Tạo **3 file env** từ mẫu (đã tách theo chức năng; đều được `.gitignore`):
 
 ```powershell
-Copy-Item .env.example .env
-# OPENROUTER_API_KEY=sk-or-v1-...
-# (tùy chọn) WATCHER_SMTP_PASSWORD=<SMTP key nếu muốn gửi email thật>
+Copy-Item .ocr.env.example     .ocr.env       # OPENROUTER_API_KEY (OCR) + OCR_MODEL (Qwen3-VL)
+Copy-Item .smtp.env.example    .smtp.env      # WATCHER_SMTP_PASSWORD (chỉ khi gửi email thật)
+Copy-Item .chatbot.env.example .chatbot.env   # PROVIDER + key/model chatbot (xem mục 7.1)
 ```
+
+- **`.ocr.env`** — key OCR (lấy MIỄN PHÍ tại <https://openrouter.ai/keys>) + `OCR_MODEL` (mặc định `qwen/qwen3-vl-30b-a3b-instruct`).
+- **`.smtp.env`** — mật khẩu/SMTP key gửi email cảnh báo.
+- **`.chatbot.env`** — cấu hình LLM cho chatbot (chọn `PROVIDER`, model, key). Chatbot dùng OpenRouter sẽ tái dùng key trong `.ocr.env`.
+
+> Cả 3 file được nạp tự động (`.env` cũ vẫn được đọc như fallback). Tất cả đọc lại mỗi request nên đổi key/provider **không cần khởi động lại**.
 
 ---
 
@@ -284,7 +292,7 @@ Brevo chỉ cho gửi đứng tên địa chỉ đã xác minh:
 **SMTP & API → SMTP**:
 - **SMTP Server:** `smtp-relay.brevo.com` · **Port:** `587`
 - **Login:** dạng `xxxxxxxx@smtp-brevo.com` (đây là `username`)
-- **SMTP key:** bấm **Generate a new SMTP key** → copy (đây là *mật khẩu*, để vào `.env`)
+- **SMTP key:** bấm **Generate a new SMTP key** → copy (đây là *mật khẩu*, để vào `.smtp.env`)
 
 ### Bước 4 — Điền vào app
 `config/rules.yaml` (khối `email`):
@@ -302,7 +310,7 @@ owners:
   ops_team:
     emails: [owner@example.com]            # người nhận — không cần verify
 ```
-`.env`:
+`.smtp.env`:
 ```
 WATCHER_SMTP_PASSWORD=<SMTP key ở Bước 3>
 ```
@@ -315,7 +323,7 @@ WATCHER_SMTP_PASSWORD=<SMTP key ở Bước 3>
 ### Lưu ý thực tế
 - App báo **"Sent"** chỉ nghĩa Brevo đã **nhận** ở mức SMTP. Trạng thái giao thật xem ở **Brevo Logs**. Nếu Logs báo *"sender ... is not valid"* → bạn **chưa verify** địa chỉ `from` (làm lại Bước 2).
 - Người nhận có thể thấy **From = `...@brevosend.com`** thay vì Gmail của bạn. Đây là **bình thường**: vì bạn chưa authenticate domain riêng, Brevo viết lại địa chỉ gửi sang domain đã xác thực của họ để **vượt SPF/DKIM/DMARC** (chính nhờ vậy thư mới vào được inbox). Muốn From hiển thị đúng địa chỉ đẹp → phải **authenticate một domain bạn sở hữu** (thêm DKIM/SPF vào DNS) — không làm được với gmail.com/company.com.
-- 🔐 SMTP key chỉ để trong `.env` (đã `.gitignore`). Nếu lộ → vào Brevo tạo key mới.
+- 🔐 SMTP key chỉ để trong `.smtp.env` (đã `.gitignore`). Nếu lộ → vào Brevo tạo key mới.
 
 Sửa YAML/`.env` xong nhớ **khởi động lại app**.
 
@@ -346,6 +354,7 @@ python run.py
    toàn bộ nội dung (tiêu đề, người nhận, lý do, body), hoặc bấm **✉ Resend**.
 6. Tab **👥 User Management** (admin).
 7. Tab **🚀 API Server** (admin): bật/tắt server REST API ngay trong app (nút *Start/Stop*), mở nhanh Swagger `/docs`. Server chạy tiến trình riêng, tự tắt khi thoát app.
+8. Tab **💬 Chatbot** (mọi user): trò chuyện với trợ lý AI ngay trong app. AI gọi tool truy vấn/thao tác DB **theo đúng quyền của bạn** (vd chỉ admin mới tạo/xóa user qua chat). Có nút **🆕 New chat** (bắt đầu phiên mới) và **hiển thị provider/model đang dùng** ở góc phải. Provider/model chọn ở `.chatbot.env`.
 
 ### Demo cooldown nhanh
 Mở một trang có chữ `ERROR` hoặc `Daily Sync Failed`, chụp Chrome **2 lần liên tiếp**:
@@ -367,11 +376,11 @@ và mix) để test nhanh — mở bằng Chrome/Edge rồi chụp. Xem [test_pa
 
 | Hiện tượng | Khắc phục |
 |------------|-----------|
-| `OPENROUTER_API_KEY is not configured` | Tạo `.env`, dán key. |
+| `OPENROUTER_API_KEY is not configured` | Tạo `.ocr.env`, dán key OCR. |
 | `No Google Chrome window found (chrome.exe)` | Mở trình duyệt đó, hoặc tích *Launch the app if it is not running*. |
 | `Could not bring the window to the foreground` | App khác đang giữ focus → click vào trình duyệt rồi chụp lại. |
 | Gửi email thất bại (`SEND FAILED — …`) | App nay ghi **mô tả lỗi chi tiết** ngay trong tab *Email explanation* / *Sent emails* và full traceback trong `logs/`. Đọc phần mô tả để biết nguyên nhân: *Authentication failed* (sai `username`/mật khẩu — Gmail cần App Password, Brevo cần SMTP key), *Sender refused* (`from` chưa verify), *Connection timed out* (firewall/sai cổng), *DNS lookup failed* (sai `smtp_host`/mất mạng), *TLS/SSL handshake failed* (sai `use_tls`/cổng). Dùng **Send test email** để chẩn đoán nhanh. |
-| `Missing SMTP password` | Chưa set `WATCHER_SMTP_PASSWORD` trong `.env`. |
+| `Missing SMTP password` | Chưa set `WATCHER_SMTP_PASSWORD` trong `.smtp.env`. |
 | Muốn xem rule khớp mà không gửi mail thật | Để `email.enabled: false` (DRY-RUN). |
 | Muốn test gửi mail nhiều lần, không bị cooldown chặn | Đặt `cooldown.enabled: false` trong `config/rules.yaml` rồi khởi động lại (rule khớp sẽ luôn gửi). Đặt lại `true` để bật BR04. |
 | Quên mật khẩu admin | Xóa `data/screenwatcher.db` (mất dữ liệu cũ) để tạo lại admin mặc định. |
@@ -392,9 +401,29 @@ desktop (đọc kết quả read-only; login/tạo–xóa/quản lý user ghi qu
 uvicorn app.ai.chat_server:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-> Cần có mục `ai:` trong `config/rules.yaml` (provider `azure`/`llama`, `model`, `mock`).
-> Để `mock: true` sẽ chạy được ngay mà không cần API key hay OpenCode CLI. Docs tương tác
-> tại <http://127.0.0.1:8000/docs>.
+### Chọn LLM provider (`.chatbot.env` — động)
+
+Chatbot dùng LLM qua **OpenAI-compatible API**; provider/model/key đọc từ **`.chatbot.env`**
+(+ `.ocr.env` cho key OpenRouter dùng chung) và **re-load mỗi request** — đổi provider/key
+**không cần restart**. Chọn provider bằng `PROVIDER=`; `ENDPOINT` chỉ bắt buộc với Azure/Local:
+
+| `PROVIDER` | Key / Model / Endpoint trong `.chatbot.env` |
+|---|---|
+| `OPENROUTER` (mặc định) | `OPENROUTER_MODEL` (mặc định `openai/gpt-4o-mini`); key dùng chung `OPENROUTER_API_KEY` từ `.ocr.env` |
+| `OPENAI` | `OPENAI_API_KEY`, `OPENAI_MODEL` (endpoint: không cần) |
+| `AZURE_OPENAI` | `AZURE_OPENAI_API_KEY`, **`AZURE_OPENAI_ENDPOINT`**, `AZURE_OPENAI_MODEL` (deployment), `AZURE_OPENAI_API_VERSION` |
+| `LOCAL` | **`LOCAL_LLM_ENDPOINT`** (vd Ollama `http://localhost:11434/v1`), `LOCAL_LLM_MODEL`, `LOCAL_LLM_API_KEY` (tùy) |
+
+**Model mặc định:** `openai/gpt-4o-mini` (OpenRouter) — tool-calling tốt, rẻ; tương lai đổi OpenAI chỉ cần `PROVIDER=OPENAI`.
+Các knob **không bí mật** ở `config/rules.yaml` mục `ai:` (`timeout_seconds` 120, `max_context_chars` 6000, `mock`).
+Thiếu key → boot vẫn chạy, báo lỗi rõ lúc chat (`CONFIG_ERROR`, retryable). `mock: true` để chạy không cần LLM.
+Xem provider/model đang dùng: **`GET /api/chat/provider`** (hoặc nhãn trên tab Chatbot). Docs: <http://127.0.0.1:8000/docs>.
+
+**Công cụ (tools) của chatbot** — LLM gọi tool để truy vấn/thao tác DB **theo đúng quyền người hỏi**:
+`get_my_profile`, `get_latest_watcher_result`, `get_execution`, `trigger_capture` (mọi user); `list_users`,
+`get_user`, **`create_user`**, `delete_user`, `delete_execution` (**admin**). Ví dụ: admin nhắn *"create a user
+bob role operator"* / *"delete user bob"* → chatbot thực hiện; user thường → *"You don't have permission to
+perform this action."* Mọi lần chat + từng tool call (tên, tham số, kết quả) đều được **ghi log** (`logs/`).
 
 ### Xác thực & phân quyền (JWT)
 
@@ -410,7 +439,7 @@ Endpoint được đặt tên theo **REST convention**, gom nhóm theo domain (S
 - **User** (mọi tài khoản đăng nhập): toàn quyền như admin — chat, xem kết quả, trigger chụp — **trừ xóa**. Về tài khoản: chỉ tự quản lý **acc của mình** (`/api/user/*`: xem/sửa thông tin, đổi mật khẩu).
 - **Admin** (role `admin`): thêm quyền **xóa** (soft delete, đánh dấu `deleted_at`, ẩn khỏi kết quả) và **quản lý user** (`/api/admin/users`: tạo/xem/sửa/soft-delete, reset mật khẩu, gán role).
 
-> Secret ký JWT lấy từ `.env` (`WATCHER_JWT_SECRET`). Nếu để trống sẽ dùng secret dev **không an toàn** (chỉ demo localhost). Sinh secret: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Thời hạn token cấu hình ở `config/rules.yaml` mục `auth.access_token_minutes` (mặc định 60 phút).
+> Secret ký JWT lấy từ `.chatbot.env` (`WATCHER_JWT_SECRET`). Nếu để trống sẽ dùng secret dev **không an toàn** (chỉ demo localhost). Sinh secret: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Thời hạn token cấu hình ở `config/rules.yaml` mục `auth.access_token_minutes` (mặc định 60 phút).
 
 **Các endpoint:**
 
@@ -427,7 +456,12 @@ Endpoint được đặt tên theo **REST convention**, gom nhóm theo domain (S
 | Admin | POST | `/api/admin/users` | **admin** | Tạo user. Body: `{"username","password","role","email?","first_name?","last_name?","phone?","full_name?"}` (role: `admin`/`operator`/`viewer`). |
 | Admin | PUT | `/api/admin/users/{id}` | **admin** | Cập nhật user: `username`/`full_name`/`email`/`first_name`/`last_name`/`phone`/`role`/`is_active`/`new_password` (chỉ field gửi lên). |
 | Admin | DELETE | `/api/admin/users/{id}` | **admin** | **Soft delete** user thường. Tài khoản **admin không xóa được** (403 "You cannot delete admin account"). |
-| AI Chat | POST | `/api/chat` | user/admin | Hỏi–đáp AI; tự nhét context watcher mới nhất vào prompt. Body: `{"message":"...","session_id":"..."}`. |
+| AI Chat | POST | `/api/chat` | user/admin | Hỏi–đáp AI (LLM + tools theo quyền người hỏi). Body: `{"message"(≤4000), "session_id"(**UUID**, tùy chọn), "include_latest_watcher_context"(mặc định true), "max_context_chars"}`. Trả `{status, session_id, reply, model, provider, execution_context_used}` (lỗi: `{status:"error", error_code, message, retryable}`). **Hội thoại lưu theo user.** `session_id` phải là **UUID**: UUID đã có (của mình)→nối tiếp; UUID chưa có→phiên mới với id đó; bỏ trống→phiên mới; text như `"demo"`→**422**. |
+| AI Chat | GET | `/api/chat/provider` | user/admin | Provider + model chatbot đang dùng: `{provider, model, mock, key_configured}`. |
+| AI Chat | POST | `/api/chat/sessions` | user/admin | Tạo **phiên mới** (rỗng), trả `session_id`. Body tùy chọn: `{"title"}`. |
+| AI Chat | GET | `/api/chat/sessions` | user/admin | Liệt kê phiên hội thoại của mình (id, title, message_count, last_message_at). |
+| AI Chat | GET | `/api/chat/sessions/{id}` | user/admin | Xem tin nhắn 1 phiên (của mình; admin xem của bất kỳ). Người khác → 403. |
+| AI Chat | DELETE | `/api/chat/sessions/{id}` | user/admin | **Soft delete** 1 phiên của mình (admin: bất kỳ). |
 | Watcher | POST | `/api/watcher/executions` | user/admin | **Trigger app thật**: chụp → OCR → rule → email. Body: `{"targets":["chrome","edge"],"launch":false}`. Trả execution_id mỗi target. ⚠ Chạy trên máy Windows đang mở trình duyệt đích. |
 | Watcher | GET | `/api/watcher/executions/latest` | user/admin | Kết quả execution **mới nhất**. **User thường chỉ thấy của mình**, admin thấy của tất cả. `has_data:false` khi chưa có. |
 | Watcher | GET | `/api/watcher/executions/{id}` | user/admin | Chi tiết/audit 1 execution (thêm `file_path`, `status`). **User chỉ xem execution của mình** (của người khác → **403**), admin xem tất cả. **404** nếu không tồn tại/đã xóa. |
@@ -445,6 +479,8 @@ Endpoint được đặt tên theo **REST convention**, gom nhóm theo domain (S
 Quy tắc: `email` phải đúng định dạng (`user@example.com`), `phone` 6–20 ký tự (số/`+ - ( )`/space), `password`/`new_password` ≥ 6 ký tự, `username` ≥ 3 ký tự, `role` ∈ {`admin`,`operator`,`viewer`}. Trên Swagger `/docs`, mỗi API đã có **ví dụ hợp lệ điền sẵn** — bấm *Try it out* là chạy được ngay (không còn `"string"` gây lỗi).
 
 **Mã lỗi thường gặp:** `401 UNAUTHENTICATED` (thiếu token), `401 TOKEN_EXPIRED`/`INVALID_TOKEN`, `403 FORBIDDEN` với message **"You don't have permission to access action."** (không đủ quyền), `409 CONFLICT` (username trùng), `422 VALIDATION_ERROR` (sai định dạng). Mọi khóa chính (`id`, `execution_id`...) là **UUIDv7** — xem [mục 3](#3-thực-thể-quản-lý-database--sqlite).
+
+**Bảo mật / Observability (spec §16):** bind mặc định `127.0.0.1`; key chỉ từ `.env`; không log secret/prompt. Khi expose ra ngoài, đặt `server.require_api_token: true` (rules.yaml) → mọi endpoint (trừ health/docs/auth) yêu cầu header `X-API-Token: <WATCHER_API_TOKEN>`. Message `/chat` giới hạn 4000 ký tự; context watcher giới hạn `ai.max_context_chars`; mỗi request có `X-Request-ID` + log method/path/status/thời lượng.
 
 **Client Jupyter chatbox:**
 

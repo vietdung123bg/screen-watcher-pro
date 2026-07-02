@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+# Split env files (real ones hold secrets; *.example are safe to commit)
+.ocr.env
+.smtp.env
+.chatbot.env
 
 # ===== Python =====
 .venv/

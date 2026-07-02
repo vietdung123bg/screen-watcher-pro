@@ -1,13 +1,27 @@
-"""Provider config (D, FR04): switch between Llama and Azure OpenAI by editing
-YAML only (config/rules.yaml -> `ai:` section). API keys come from environment
-variables, never from YAML. Validated fail-fast at server startup.
+"""Chat LLM provider config (FR04) — fully .env-driven and DYNAMIC.
 
+Which provider/model/key is used is decided by environment variables and re-read
+from .env on EVERY request, so you can switch provider or rotate keys live without
+restarting the server or the app.
+
+.env keys:
+    PROVIDER=OPENROUTER            # OPENAI | AZURE_OPENAI | OPENROUTER | LOCAL
+
+    OPENAI_API_KEY=...             OPENAI_MODEL=gpt-4o-mini
+    AZURE_OPENAI_API_KEY=...       AZURE_OPENAI_ENDPOINT=https://xxx.openai.azure.com
+                                   AZURE_OPENAI_MODEL=<deployment>  AZURE_OPENAI_API_VERSION=2024-06-01
+    OPENROUTER_API_KEY=...         OPENROUTER_MODEL=openai/gpt-4o-mini
+    LOCAL_LLM_ENDPOINT=http://localhost:11434/v1   LOCAL_LLM_MODEL=llama3.1   LOCAL_LLM_API_KEY=(optional)
+
+Only non-secret knobs live in config/rules.yaml `ai:` (validated fail-fast at boot):
     ai:
-      provider: azure          # azure | llama
-      model: gpt-4o-mini       # bare model name; prefix is added per provider
-      working_dir: .           # safe cwd for the opencode subprocess
-      timeout_seconds: 60
-      mock: false              # true -> skip the real CLI, return a canned reply
+      timeout_seconds: 120         # per-request timeout (spec: 120-180s)
+      max_context_chars: 6000      # cap watcher context injected into the prompt
+      mock: false                  # true -> skip the real API, return a canned reply
+      provider: openrouter         # optional fallback if .env PROVIDER is unset
+
+ENDPOINT is only meaningful for AZURE_OPENAI (required) and LOCAL (base URL);
+OPENAI/OPENROUTER use a fixed base URL.
 """
 
 from __future__ import annotations
@@ -15,83 +29,132 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-# provider -> (model prefix, env var holding the API key)
-PROVIDERS: dict[str, tuple[str, str]] = {
-    "azure": ("azure", "AZURE_OPENAI_API_KEY"),
-    "llama": ("llama", "LLAMA_API_KEY"),
+# Canonical provider specs. kind: "openai" (base_url client) or "azure" (AzureOpenAI).
+PROVIDERS: dict[str, dict] = {
+    "openrouter": {"kind": "openai", "base_url": "https://openrouter.ai/api/v1",
+                   "key_env": "OPENROUTER_API_KEY", "model_env": "OPENROUTER_MODEL",
+                   "default_model": "openai/gpt-4o-mini"},
+    "openai": {"kind": "openai", "base_url": None,
+               "key_env": "OPENAI_API_KEY", "model_env": "OPENAI_MODEL",
+               "default_model": "gpt-4o-mini"},
+    "azure_openai": {"kind": "azure",
+                     "key_env": "AZURE_OPENAI_API_KEY", "endpoint_env": "AZURE_OPENAI_ENDPOINT",
+                     "model_env": "AZURE_OPENAI_MODEL", "api_version_env": "AZURE_OPENAI_API_VERSION",
+                     "default_api_version": "2024-06-01", "default_model": "gpt-4o-mini"},
+    "local": {"kind": "openai", "base_url_env": "LOCAL_LLM_ENDPOINT",
+              "base_url": "http://localhost:11434/v1", "key_env": "LOCAL_LLM_API_KEY",
+              "model_env": "LOCAL_LLM_MODEL", "default_model": "llama3.1", "key_optional": True},
 }
+
+# Accept a few friendly spellings for the PROVIDER selector.
+_ALIASES = {
+    "azure": "azure_openai", "azureopenai": "azure_openai", "azure-openai": "azure_openai",
+    "openai": "openai", "openrouter": "openrouter", "open-router": "openrouter",
+    "local": "local", "local_llm": "local", "localllm": "local", "ollama": "local",
+}
+
+DEFAULT_TIMEOUT = 120
+DEFAULT_MAX_CONTEXT_CHARS = 6000
+DEFAULT_PROVIDER = "openrouter"
 
 
 class ProviderConfigError(ValueError):
-    """Raised on invalid config so the server can fail fast at startup."""
+    """Raised on invalid *structural* config (rules.yaml) so we fail fast at startup."""
+
+
+def _reload_env() -> None:
+    """Reload all env files (.chatbot.env etc.) so provider/key/model changes take
+    effect without a restart."""
+    try:
+        from app import config
+        config.load_env_files(override=True)
+    except Exception:
+        pass
+
+
+def _normalize(name: str) -> str:
+    return _ALIASES.get(name.strip().lower().replace(" ", ""), name.strip().lower())
+
+
+@dataclass
+class ResolvedProvider:
+    """A concrete provider selection resolved from the current environment."""
+    provider: str
+    kind: str
+    model: str
+    api_key: str
+    base_url: str | None
+    api_version: str
+    key_env: str
+    key_optional: bool
+
+    def usable(self) -> bool:
+        return bool(self.api_key) or self.key_optional
 
 
 @dataclass
 class ProviderConfig:
-    provider: str
-    model: str              # bare name, e.g. "gpt-4o-mini"
-    model_full: str         # prefixed, e.g. "azure/gpt-4o-mini" (what opencode --model wants)
-    api_key: str            # resolved from env; "" when mock
-    env_var_name: str
-    working_dir: str
     timeout_seconds: int
+    max_context_chars: int
     mock: bool
+    default_provider: str
 
     @classmethod
     def from_app_config(cls, app_config: dict) -> "ProviderConfig":
-        """Build (and validate) from the parsed rules.yaml dict. Raises
-        ProviderConfigError on any problem — call this at startup (fail fast)."""
         ai = (app_config or {}).get("ai", {}) or {}
-
-        provider = str(ai.get("provider", "")).strip().lower()
-        if provider not in PROVIDERS:
-            raise ProviderConfigError(
-                f"ai.provider must be one of {sorted(PROVIDERS)}, got {provider!r}."
-            )
-
-        model = str(ai.get("model", "")).strip()
-        if not model:
-            raise ProviderConfigError("ai.model must not be empty.")
-
-        prefix, env_var = PROVIDERS[provider]
-        # Allow the user to already include the prefix; don't double it.
-        model_full = model if "/" in model else f"{prefix}/{model}"
-
-        working_dir = str(ai.get("working_dir", ".")).strip() or "."
-        if not os.path.isdir(working_dir):
-            raise ProviderConfigError(
-                f"ai.working_dir {working_dir!r} does not exist or is not a directory."
-            )
-
         try:
-            timeout_seconds = int(ai.get("timeout_seconds", 60))
+            timeout_seconds = int(ai.get("timeout_seconds", DEFAULT_TIMEOUT))
         except (TypeError, ValueError):
             raise ProviderConfigError("ai.timeout_seconds must be an integer.")
         if timeout_seconds <= 0:
             raise ProviderConfigError("ai.timeout_seconds must be > 0.")
+        try:
+            max_context_chars = int(ai.get("max_context_chars", DEFAULT_MAX_CONTEXT_CHARS))
+        except (TypeError, ValueError):
+            raise ProviderConfigError("ai.max_context_chars must be an integer.")
+        if max_context_chars <= 0:
+            raise ProviderConfigError("ai.max_context_chars must be > 0.")
 
-        mock = bool(ai.get("mock", False))
+        default_provider = _normalize(str(ai.get("provider", DEFAULT_PROVIDER)))
+        if default_provider not in PROVIDERS:
+            default_provider = DEFAULT_PROVIDER
+        return cls(timeout_seconds=timeout_seconds, max_context_chars=max_context_chars,
+                   mock=bool(ai.get("mock", False)), default_provider=default_provider)
 
-        api_key = os.environ.get(env_var, "").strip()
-        if not mock and not api_key:
-            raise ProviderConfigError(
-                f"Provider {provider!r} needs env var {env_var} set "
-                f"(or set ai.mock: true for demo/testing)."
-            )
+    # ---- dynamic resolution (reads .env fresh every call) ----
+    def resolve(self) -> ResolvedProvider:
+        _reload_env()
+        name = _normalize(os.environ.get("PROVIDER", "") or self.default_provider)
+        spec = PROVIDERS.get(name)
+        if spec is None:
+            name, spec = self.default_provider, PROVIDERS[self.default_provider]
 
-        return cls(
-            provider=provider,
-            model=model,
-            model_full=model_full,
-            api_key=api_key,
-            env_var_name=env_var,
-            working_dir=working_dir,
-            timeout_seconds=timeout_seconds,
-            mock=mock,
-        )
+        model = (os.environ.get(spec.get("model_env", ""), "").strip()
+                 or spec.get("default_model", ""))
+        if spec["kind"] == "azure":
+            base_url = os.environ.get(spec["endpoint_env"], "").strip() or None
+        elif "base_url_env" in spec:
+            base_url = os.environ.get(spec["base_url_env"], "").strip() or spec.get("base_url")
+        else:
+            base_url = spec.get("base_url")
+        api_version = (os.environ.get(spec.get("api_version_env", ""), "").strip()
+                       or spec.get("default_api_version", ""))
+        return ResolvedProvider(
+            provider=name, kind=spec["kind"], model=model,
+            api_key=os.environ.get(spec["key_env"], "").strip(), base_url=base_url,
+            api_version=api_version, key_env=spec["key_env"],
+            key_optional=bool(spec.get("key_optional", False)))
 
     def safe_summary(self) -> str:
         """Loggable one-liner. NEVER includes the API key."""
-        key_state = "mock" if self.mock else ("set" if self.api_key else "MISSING")
-        return (f"provider={self.provider} model={self.model_full} "
-                f"cwd={self.working_dir} timeout={self.timeout_seconds}s key={key_state}")
+        r = self.resolve()
+        if self.mock:
+            key_state = "mock"
+        elif r.api_key:
+            key_state = "set"
+        elif r.key_optional:
+            key_state = "not-required"
+        else:
+            key_state = "MISSING"
+        return (f"provider={r.provider} model={r.model} timeout={self.timeout_seconds}s "
+                f"max_ctx={self.max_context_chars} key[{r.key_env}]={key_state}")

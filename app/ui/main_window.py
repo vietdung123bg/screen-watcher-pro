@@ -9,6 +9,7 @@ from app.context import AppContext
 from app.ui import clear_widget
 from app.ui.api_tab import ApiServerTab
 from app.ui.capture_tab import CaptureTab
+from app.ui.chatbot_tab import ChatbotTab
 from app.ui.emails_tab import EmailsTab
 from app.ui.history_tab import HistoryTab
 from app.ui.rules_tab import RulesTab
@@ -62,6 +63,9 @@ class MainWindow:
         if user.can("rule.view"):
             nb.add(RulesTab(nb, self.ctx), text="  ⚙  Rules & Email  ")
             nb.add(emails, text="  📧  Sent Emails  ")
+
+        # AI assistant — available to every signed-in user (tools respect their role)
+        nb.add(ChatbotTab(nb, self.ctx), text="  💬  Chatbot  ")
 
         if user.can("user.manage"):
             nb.add(UsersTab(nb, self.ctx), text="  👥  User Management  ")

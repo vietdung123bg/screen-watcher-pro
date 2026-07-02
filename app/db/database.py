@@ -151,6 +151,36 @@ CREATE TABLE IF NOT EXISTS cooldown_state (
     owner_group   TEXT,
     last_sent_at  TEXT NOT NULL
 );
+
+-- Chatbot conversations, per user. Optimized for heavy writes:
+--   * only the user message + final assistant reply are stored (no tool/system chatter),
+--   * message_count / last_message_at are denormalized so listing sessions never scans messages,
+--   * indexes back the two hot queries (a user's sessions; a session's messages).
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id              TEXT PRIMARY KEY,                 -- UUIDv7
+    user_id         TEXT NOT NULL REFERENCES users(id),
+    title           TEXT,
+    message_count   INTEGER NOT NULL DEFAULT 0,       -- denormalized (cheap listing)
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    last_message_at TEXT,
+    metadata        TEXT,                             -- JSON: last provider/model, etc.
+    deleted_at      TEXT
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id          TEXT PRIMARY KEY,                     -- UUIDv7 (time-ordered => sorts chronologically)
+    session_id  TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    user_id     TEXT NOT NULL REFERENCES users(id),   -- denormalized for per-user scoping
+    role        TEXT NOT NULL,                        -- 'user' | 'assistant'
+    content     TEXT NOT NULL,
+    error_code  TEXT,
+    metadata    TEXT,                                 -- JSON: model, provider, latency_ms, ctx_used
+    created_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_chat_sessions_user ON chat_sessions(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS ix_chat_messages_session ON chat_messages(session_id, created_at);
 """
 
 

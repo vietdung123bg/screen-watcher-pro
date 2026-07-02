@@ -8,11 +8,11 @@ Endpoints are grouped by domain (see /docs tags):
   Watcher : /api/watcher/executions[...]  (latest / detail / create / delete)
   AI Chat : POST /api/chat
 
-The backbone that C, D, E and F plug into:
-  D provider_config  -> validated at STARTUP (fail fast; server won't boot on bad config)
-  E watcher_context  -> latest OCR/rule/email data injected into every prompt
-  F conversation_store -> per-session history
-  C opencode adapter -> runs the CLI, returns AIResponse
+The chat backbone:
+  provider_config  -> which LLM (OpenRouter/OpenAI/Azure/Local), resolved from .env dynamically
+  watcher_context  -> latest OCR/rule/email data, scoped to the caller, injected into the prompt
+  conversation_store -> per-session history
+  chat_agent       -> LLM tool-calling agent (queries/acts on the DB with per-user permissions)
 
 Run (single worker — see conversation_store.py):
     uvicorn app.ai.chat_server:app --host 127.0.0.1 --port 8000 --workers 1
@@ -21,29 +21,26 @@ Run (single worker — see conversation_store.py):
 from __future__ import annotations
 
 import logging
+import os
 import re
+import time
+import uuid
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from app import config
 from app.ai.api_auth import JWTConfig, create_access_token, is_admin, make_auth_deps
-from app.ai.conversation_store import ConversationStore
-from app.ai.models import AIResponse, ChatMessage, OK
-from app.ai.opencode_cli_adapter import OpenCodeCLIAdapter
+from app.ai.chat_agent import ChatAgent
+from app.ai.conversation_store import ChatStore
+from app.ai.models import ChatMessage
 from app.ai.provider_config import ProviderConfig
 from app.ai.watcher_context_service import WatcherContextService
 from app.services.auth import CurrentUser
 
 logger = logging.getLogger("screen_watcher.ai.server")
-
-SYSTEM_PREAMBLE = (
-    "You are the assistant of Screen Watcher Pro. Answer the user's question using "
-    "the latest watcher result below (OCR text + matched rules + email decisions). "
-    "If the answer is not in the context, say so plainly. Be concise."
-)
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PHONE_RE = re.compile(r"^[0-9+\-\s()]{6,20}$")
@@ -61,7 +58,7 @@ def _normalize_optional_email(v):
     if not v:
         return None
     if not _EMAIL_RE.match(v):
-        raise ValueError("Email không hợp lệ. Ví dụ hợp lệ: user@example.com")
+        raise ValueError("Invalid email. Example of a valid one: user@example.com")
     return v
 
 
@@ -72,7 +69,7 @@ def _normalize_optional_phone(v):
     if not v:
         return None
     if not _PHONE_RE.match(v):
-        raise ValueError("Số điện thoại không hợp lệ (6–20 ký tự: số và + - ( ) khoảng trắng).")
+        raise ValueError("Invalid phone number (6-20 chars: digits and + - ( ) space).")
     return v
 
 
@@ -105,7 +102,7 @@ class _ProfileValidators(BaseModel):
             return None
         v = str(v).strip()
         if len(v) < 3:
-            raise ValueError("Username phải có ít nhất 3 ký tự.")
+            raise ValueError("Username must be at least 3 characters.")
         return v
 
     @field_validator("new_password", check_fields=False)
@@ -114,15 +111,39 @@ class _ProfileValidators(BaseModel):
         if v is None:
             return None
         if len(v) < 6:
-            raise ValueError("Mật khẩu mới phải có ít nhất 6 ký tự.")
+            raise ValueError("New password must be at least 6 characters.")
         return v
 
 
 class ChatBody(BaseModel):
-    message: str = Field(..., min_length=1, description="Câu hỏi cho AI.")
-    session_id: str = "default"
+    message: str = Field(..., min_length=1, max_length=4000,
+                         description="The user's question for the assistant (max 4000 chars).")
+    session_id: str | None = Field(
+        None, description="A conversation UUID. Leave empty to start a new session; a UUID "
+                          "not yet in the DB starts a new session with that id. Must be a UUID.")
+    include_latest_watcher_context: bool = Field(
+        True, description="Inject the latest watcher result into the prompt.")
+    max_context_chars: int | None = Field(
+        None, description="Override the max characters of watcher context to inject.")
     model_config = {"json_schema_extra": {"example": {
-        "message": "Trạng thái watcher mới nhất là gì?", "session_id": "demo"}}}
+        "message": "What is the latest watcher result?",
+        "include_latest_watcher_context": True}}}
+
+    @field_validator("session_id")
+    @classmethod
+    def _v_session_id(cls, v):
+        if v is None or str(v).strip() == "":
+            return None
+        try:
+            uuid.UUID(str(v))
+        except ValueError:
+            raise ValueError("session_id must be a UUID (leave it empty to start a new session).")
+        return str(v)
+
+
+class NewSessionBody(BaseModel):
+    title: str | None = Field(None, description="Optional title for the new conversation.")
+    model_config = {"json_schema_extra": {"example": {"title": "My new chat"}}}
 
 
 class WatcherRunBody(BaseModel):
@@ -142,7 +163,7 @@ class RegisterBody(_ProfileValidators):
     """Public self-registration. Role is NOT accepted here (always a non-admin
     default) so nobody can self-register as admin."""
     username: str
-    password: str = Field(..., min_length=6, description="Ít nhất 6 ký tự.")
+    password: str = Field(..., min_length=6, description="At least 6 characters.")
     full_name: str | None = None
     email: str | None = None
     first_name: str | None = None
@@ -155,7 +176,7 @@ class RegisterBody(_ProfileValidators):
 
 class UserCreateBody(_ProfileValidators):
     username: str
-    password: str = Field(..., min_length=6, description="Ít nhất 6 ký tự.")
+    password: str = Field(..., min_length=6, description="At least 6 characters.")
     full_name: str | None = None
     email: str | None = None
     first_name: str | None = None
@@ -201,34 +222,22 @@ class ProfileUpdateBody(_ProfileValidators):
 
 class ChangePasswordBody(BaseModel):
     current_password: str
-    new_password: str = Field(..., min_length=6, description="Ít nhất 6 ký tự.")
+    new_password: str = Field(..., min_length=6, description="At least 6 characters.")
     model_config = {"json_schema_extra": {"example": {
         "current_password": "admin123", "new_password": "newpass123"}}}
 
 
-def build_prompt(context_block: str, history: list[ChatMessage], message: str) -> str:
-    parts = [SYSTEM_PREAMBLE, "", "=== LATEST WATCHER RESULT ===", context_block, ""]
-    if history:
-        parts.append("=== CONVERSATION SO FAR ===")
-        for m in history:
-            parts.append(f"{m.role}: {m.content}")
-        parts.append("")
-    parts.append("=== USER QUESTION ===")
-    parts.append(message)
-    return "\n".join(parts)
-
-
 def create_app(app_config: dict | None = None) -> FastAPI:
-    """App factory. Validates provider config eagerly (fail fast)."""
+    """App factory. Validates the structural AI config eagerly (fail fast)."""
+    config.setup_logging()   # ensure our loggers emit to logs/ + console (API-server process too)
     app_config = app_config if app_config is not None else config.load_app_config()
 
-    # D: fail fast — raises ProviderConfigError if the config is wrong.
+    # Fail fast on bad structural config (timeouts, etc). The API key is resolved
+    # dynamically from .env at chat time, so it is NOT required to boot.
     provider = ProviderConfig.from_app_config(app_config)
     logger.info("AI provider config OK: %s", provider.safe_summary())
 
-    adapter = OpenCodeCLIAdapter(provider)
     context_service = WatcherContextService()
-    store = ConversationStore()
 
     # One WRITABLE DB connection, reused by auth (login), /watcher/run and delete.
     # (SQLite allows this alongside the read-only WatcherContextService connections.)
@@ -240,6 +249,28 @@ def create_app(app_config: dict | None = None) -> FastAPI:
     rw_db.init_schema()          # idempotent: ensures schema + migrations + seeded admin
     rw_repo = Repository(rw_db)
     auth_service = AuthService(rw_repo)
+
+    # Capture pipeline (lazy: pulls in pywin32 only on first use) — shared by the
+    # /watcher/executions endpoint and the chat agent's trigger_capture tool.
+    _runner: dict = {}
+
+    def _get_capture_service():
+        if "capture" not in _runner:
+            from app.services.capture_service import CaptureService
+            from app.services.notification_service import NotificationService
+            _runner["capture"] = CaptureService(rw_repo, NotificationService(rw_repo, app_config))
+        return _runner["capture"]
+
+    def _capture_fn(user_id, targets, launch=False):
+        results = _get_capture_service().capture_targets(user_id, targets, launch=launch)
+        return [{"target": r.target, "status": r.status, "execution_id": r.screenshot_id,
+                 "window_title": r.window_title, "char_count": r.char_count,
+                 "error": r.error, "email": (r.outcome.summary if r.outcome else None)}
+                for r in results]
+
+    # The chat agent (LLM + DB tools). Uses the writable repo so admin tools can act.
+    agent = ChatAgent(provider, rw_repo, context_service, capture_fn=_capture_fn)
+    chat_store = ChatStore(rw_repo)     # persistent per-user conversations
 
     # Static role id -> name map (roles are seeded once) for serializing users.
     roles_by_id = {r["id"]: r["name"] for r in rw_repo.list_roles()}
@@ -311,11 +342,11 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         version="1.0",
         openapi_tags=[
             {"name": "system", "description": "Liveness / health checks (public)."},
-            {"name": "auth", "description": "Đăng nhập, cấp JWT access token (public)."},
-            {"name": "user", "description": "Self-service: tài khoản của CHÍNH người đăng nhập."},
-            {"name": "admin", "description": "Quản lý user — chỉ admin."},
-            {"name": "watcher", "description": "Điều khiển & tra cứu kết quả giám sát."},
-            {"name": "ai-chat", "description": "Hỏi–đáp AI về kết quả watcher."},
+            {"name": "auth", "description": "Login / self-registration, issues JWT tokens (public)."},
+            {"name": "user", "description": "Self-service: the signed-in user's OWN account."},
+            {"name": "admin", "description": "User management — admin only."},
+            {"name": "watcher", "description": "Control & query the watcher results."},
+            {"name": "ai-chat", "description": "AI assistant over the watcher data (with DB tools)."},
         ],
     )
 
@@ -355,7 +386,7 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         username = body.username
         if rw_repo.get_user_by_username(username):
             raise HTTPException(409, detail={"status": "error", "error_code": "CONFLICT",
-                                             "message": f"Username '{username}' đã tồn tại."})
+                                             "message": f"Username '{username}' already exists."})
         role = (rw_repo.get_role_by_name(self_register_role)
                 or rw_repo.get_role_by_name("viewer"))
         if role is None:
@@ -376,7 +407,7 @@ def create_app(app_config: dict | None = None) -> FastAPI:
 
     @app.get("/api/user/profile", tags=["user"])
     def get_my_profile(user: CurrentUser = Depends(get_current_user)) -> dict:
-        """Xem thông tin tài khoản của chính người đang đăng nhập."""
+        """Get the signed-in user's own account profile."""
         return _user_public(_live_user_or_404(user.id))
 
     def _profile_fields(body) -> dict:
@@ -397,14 +428,14 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         existing = rw_repo.get_user_by_username(new_username)
         if existing is not None and existing["id"] != user_id:
             raise HTTPException(409, detail={"status": "error", "error_code": "CONFLICT",
-                                             "message": f"Username '{new_username}' đã tồn tại."})
+                                             "message": f"Username '{new_username}' already exists."})
         rw_repo.update_user_username(user_id, new_username)
 
     @app.put("/api/user/profile", tags=["user"])
     def update_my_profile(body: ProfileUpdateBody,
                           user: CurrentUser = Depends(get_current_user)) -> dict:
-        """Cập nhật thông tin của chính mình: username/full_name/email/first_name/
-        last_name/phone (chỉ field gửi lên). KHÔNG đổi được role/is_active của mình."""
+        """Update your own profile: username/full_name/email/first_name/last_name/phone
+        (only the fields you send). You CANNOT change your own role/is_active."""
         _live_user_or_404(user.id)
         _apply_username_change(user.id, body.username)
         rw_repo.update_user_profile(user.id, _profile_fields(body))
@@ -414,7 +445,7 @@ def create_app(app_config: dict | None = None) -> FastAPI:
     @app.post("/api/user/change-password", tags=["user"])
     def change_my_password(body: ChangePasswordBody,
                            user: CurrentUser = Depends(get_current_user)) -> dict:
-        """Đổi mật khẩu của chính mình (phải nhập đúng mật khẩu hiện tại)."""
+        """Change your own password (the current password must be correct)."""
         try:
             auth_service.change_password(user, body.current_password, body.new_password)
         except ValueError as e:
@@ -429,28 +460,28 @@ def create_app(app_config: dict | None = None) -> FastAPI:
 
     @app.get("/api/admin/users", tags=["admin"])
     def admin_list_users(_admin: CurrentUser = Depends(require_admin)) -> dict:
-        """Liệt kê tất cả user (ẩn user đã soft-delete)."""
+        """List all users (soft-deleted users are hidden)."""
         return {"users": [_user_public(r) for r in rw_repo.list_users()]}
 
     @app.get("/api/admin/users/{user_id}", tags=["admin"])
     def admin_get_user(user_id: str,
                        _admin: CurrentUser = Depends(require_admin)) -> dict:
-        """Xem chi tiết 1 user theo id."""
+        """Get one user by id."""
         return _user_public(_live_user_or_404(user_id))
 
     @app.post("/api/admin/users", status_code=201, tags=["admin"])
     def admin_create_user(body: UserCreateBody,
                           admin: CurrentUser = Depends(require_admin)) -> dict:
-        """Tạo user mới + gán role (admin/operator/viewer)."""
+        """Create a new user and assign a role (admin/operator/viewer)."""
         username = body.username
         if rw_repo.get_user_by_username(username):
             raise HTTPException(409, detail={"status": "error", "error_code": "CONFLICT",
-                                             "message": f"Username '{username}' đã tồn tại."})
+                                             "message": f"Username '{username}' already exists."})
         role = rw_repo.get_role_by_name(body.role.strip().lower())
         if role is None:
             raise HTTPException(400, detail={"status": "error", "error_code": "BAD_REQUEST",
-                                             "message": f"Role '{body.role}' không hợp lệ. "
-                                                        f"Hợp lệ: {', '.join(sorted(roles_by_id.values()))}."})
+                                             "message": f"Invalid role '{body.role}'. "
+                                                        f"Valid: {', '.join(sorted(roles_by_id.values()))}."})
         pwd_hash, salt = hash_password(body.password)
         full_name = _derive_full_name(body.full_name, body.first_name, body.last_name)
         uid = rw_repo.create_user(username, pwd_hash, salt, full_name, role["id"],
@@ -463,8 +494,8 @@ def create_app(app_config: dict | None = None) -> FastAPI:
     @app.put("/api/admin/users/{user_id}", tags=["admin"])
     def admin_update_user(user_id: str, body: UserUpdateBody,
                           admin: CurrentUser = Depends(require_admin)) -> dict:
-        """Cập nhật user: username/full_name/email/first_name/last_name/phone / role /
-        is_active / reset mật khẩu (chỉ field gửi lên; validate ở tầng model)."""
+        """Update a user: username/full_name/email/first_name/last_name/phone / role /
+        is_active / password reset (only the fields you send; validated at the model layer)."""
         _live_user_or_404(user_id)
         _apply_username_change(user_id, body.username)
         profile = _profile_fields(body)
@@ -474,16 +505,16 @@ def create_app(app_config: dict | None = None) -> FastAPI:
             role = rw_repo.get_role_by_name(body.role.strip().lower())
             if role is None:
                 raise HTTPException(400, detail={"status": "error", "error_code": "BAD_REQUEST",
-                                                 "message": f"Role '{body.role}' không hợp lệ. "
-                                                            f"Hợp lệ: {', '.join(sorted(roles_by_id.values()))}."})
+                                                 "message": f"Invalid role '{body.role}'. "
+                                                            f"Valid: {', '.join(sorted(roles_by_id.values()))}."})
             if user_id == admin.id and role["name"] != "admin":
                 raise HTTPException(400, detail={"status": "error", "error_code": "BAD_REQUEST",
-                                                 "message": "Không thể tự bỏ quyền admin của chính mình."})
+                                                 "message": "You cannot remove your own admin role."})
             rw_repo.update_user_role(user_id, role["id"])
         if body.is_active is not None:
             if user_id == admin.id and not body.is_active:
                 raise HTTPException(400, detail={"status": "error", "error_code": "BAD_REQUEST",
-                                                 "message": "Không thể tự vô hiệu hóa tài khoản của chính mình."})
+                                                 "message": "You cannot deactivate your own account."})
             rw_repo.set_user_active(user_id, body.is_active)
         if body.new_password is not None:
             new_hash, new_salt = hash_password(body.new_password)
@@ -511,40 +542,99 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         return {"status": "ok", "user_id": user_id, "soft_deleted": True}
 
     @app.post("/api/chat", tags=["ai-chat"])
-    def chat(body: ChatBody, _user: CurrentUser = Depends(get_current_user)) -> dict:
-        """Hỏi–đáp AI; context watcher mới nhất được tự động nhét vào prompt."""
-        history = store.get_history(body.session_id)
-        context = context_service.latest()
-        prompt = build_prompt(context.to_prompt_block(), history, body.message)
+    def chat(body: ChatBody, user: CurrentUser = Depends(get_current_user)) -> dict:
+        """Ask the AI assistant. The latest watcher result (scoped to the caller) is
+        injected as context by default, and the model can call DB tools with the
+        caller's own permissions (e.g. only an admin can delete via chat).
 
-        result: AIResponse = adapter.run(prompt)
-
-        # Record the turn (user + assistant) so the next request has context.
-        store.append(body.session_id, ChatMessage("user", body.message))
-        store.append(
-            body.session_id,
-            ChatMessage("assistant", result.reply, error_code=result.error_code),
+        Conversations are persisted per user; pass the returned session_id to continue
+        the same conversation (a new one is created when session_id is unknown)."""
+        try:
+            session_id = chat_store.ensure_session(user.id, body.session_id, body.message)
+        except PermissionError:
+            raise HTTPException(403, detail={"status": "error", "error_code": "FORBIDDEN",
+                                             "message": "You don't have permission to access action."})
+        history = chat_store.recent(session_id)
+        result = agent.chat(
+            user, body.message, session_id, history,
+            include_context=body.include_latest_watcher_context,
+            max_context_chars=body.max_context_chars,
         )
+        # Persist the turn (user + assistant + metadata) in one transaction.
+        chat_store.record(session_id, user.id, body.message, result)
         return result.to_public_dict()
+
+    @app.get("/api/chat/provider", tags=["ai-chat"])
+    def chat_provider(_user: CurrentUser = Depends(get_current_user)) -> dict:
+        """The chat LLM provider + model currently selected (resolved live from .env)."""
+        snap = provider.resolve()
+        return {"provider": snap.provider, "model": snap.model, "mock": provider.mock,
+                "key_configured": snap.usable()}
+
+    @app.post("/api/chat/sessions", status_code=201, tags=["ai-chat"])
+    def create_chat_session(body: NewSessionBody | None = None,
+                            user: CurrentUser = Depends(get_current_user)) -> dict:
+        """Start a NEW empty conversation and return its session_id."""
+        title = (body.title if body and body.title else "New chat").strip()[:60] or "New chat"
+        sid = rw_repo.create_chat_session(user.id, title)
+        return {"session_id": sid, "title": title}
+
+    @app.get("/api/chat/sessions", tags=["ai-chat"])
+    def list_chat_sessions(user: CurrentUser = Depends(get_current_user)) -> dict:
+        """List the caller's chat sessions (cheap: uses denormalized counters)."""
+        return {"sessions": [
+            {"session_id": s["id"], "title": s["title"], "message_count": s["message_count"],
+             "created_at": s["created_at"], "last_message_at": s["last_message_at"]}
+            for s in rw_repo.list_chat_sessions(user.id)]}
+
+    @app.get("/api/chat/sessions/{session_id}", tags=["ai-chat"])
+    def get_chat_session(session_id: str,
+                         user: CurrentUser = Depends(get_current_user)) -> dict:
+        """Get the messages of one chat session (own session, or any if admin)."""
+        s = rw_repo.get_chat_session(session_id)
+        if s is None or s["deleted_at"]:
+            raise HTTPException(404, detail={"status": "error", "error_code": "NOT_FOUND",
+                                             "message": "No such chat session."})
+        if not is_admin(user) and s["user_id"] != user.id:
+            raise HTTPException(403, detail={"status": "error", "error_code": "FORBIDDEN",
+                                             "message": "You don't have permission to access action."})
+        msgs = [{"role": m["role"], "content": m["content"], "error_code": m["error_code"],
+                 "created_at": m["created_at"], "metadata": m["metadata"]}
+                for m in rw_repo.list_chat_messages(session_id)]
+        return {"session_id": s["id"], "title": s["title"],
+                "message_count": s["message_count"], "messages": msgs}
+
+    @app.delete("/api/chat/sessions/{session_id}", tags=["ai-chat"])
+    def delete_chat_session(session_id: str,
+                            user: CurrentUser = Depends(get_current_user)) -> dict:
+        """Soft-delete a chat session (own session, or any if admin)."""
+        s = rw_repo.get_chat_session(session_id)
+        if s is None or s["deleted_at"]:
+            raise HTTPException(404, detail={"status": "error", "error_code": "NOT_FOUND",
+                                             "message": "No such chat session."})
+        if not is_admin(user) and s["user_id"] != user.id:
+            raise HTTPException(403, detail={"status": "error", "error_code": "FORBIDDEN",
+                                             "message": "You don't have permission to access action."})
+        rw_repo.soft_delete_chat_session(session_id)
+        return {"status": "ok", "session_id": session_id, "soft_deleted": True}
 
     # ---- Watcher endpoints: a capture is an "execution" (= screenshot id) ----
     # NOTE: /executions/latest MUST be declared before /executions/{execution_id}
-    # so the literal "latest" is not parsed as an int id.
+    # so the literal "latest" is not parsed as an id.
 
     @app.get("/api/watcher/executions/latest", tags=["watcher"])
     def watcher_latest_execution(
             user: CurrentUser = Depends(get_current_user)) -> dict:
-        """FR07: kết quả execution mới nhất (đọc read-only từ SQLite).
-        User thường chỉ thấy lần chụp CỦA MÌNH; admin thấy của tất cả.
-        has_data=False (không 404) khi chưa có lần chụp nào."""
+        """Latest execution result (read-only). A normal user sees only their OWN
+        capture; an admin sees everyone's. has_data=False (not 404) when none yet."""
         scope = None if is_admin(user) else user.id
         return context_service.latest(scope).to_dict()
 
     @app.get("/api/watcher/executions/{execution_id}", tags=["watcher"])
     def watcher_get_execution(execution_id: str,
                               user: CurrentUser = Depends(get_current_user)) -> dict:
-        """§10.1: chi tiết/audit của 1 execution (= screenshot id).
-        User thường chỉ xem được execution do CHÍNH mình chụp; admin xem tất cả."""
+        """Detail/audit of one execution. A normal user can only view executions they
+        captured; an admin can view any."""
         ctx = context_service.get(execution_id)
         if not ctx.has_data:
             raise HTTPException(
@@ -559,23 +649,6 @@ def create_app(app_config: dict | None = None) -> FastAPI:
                         "message": "You don't have permission to access action."},
             )
         return ctx.to_dict(include_audit=True)
-
-    # POST /watcher/run triggers the REAL desktop capture pipeline (capture -> OCR
-    # -> rule eval -> email). It needs a WRITABLE DB connection + the capture stack
-    # (pywin32), so it is built lazily on first call — the chat server still boots
-    # on machines without the GUI dependencies installed.
-    _runner: dict = {}
-
-    def _get_capture_service():
-        """Build the capture pipeline lazily (pulls in pywin32) on first use,
-        reusing the shared writable connection (rw_repo)."""
-        if "capture" not in _runner:
-            from app.services.capture_service import CaptureService
-            from app.services.notification_service import NotificationService
-
-            notifier = NotificationService(rw_repo, app_config)
-            _runner["capture"] = CaptureService(rw_repo, notifier)
-        return _runner["capture"]
 
     @app.post("/api/watcher/executions", status_code=201, tags=["watcher"])
     def watcher_create_execution(body: WatcherRunBody,
@@ -615,7 +688,7 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         }
 
     @app.delete("/api/watcher/executions/{execution_id}", tags=["watcher"])
-    def watcher_delete_execution(execution_id: int,
+    def watcher_delete_execution(execution_id: str,
                                  admin: CurrentUser = Depends(require_admin)) -> dict:
         """Admin-only SOFT delete of a watcher execution (= screenshot).
 
@@ -648,7 +721,7 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         return JSONResponse(
             status_code=422,
             content={"status": "error", "error_code": "VALIDATION_ERROR",
-                     "message": f"Dữ liệu không hợp lệ — {summary}",
+                     "message": f"Invalid request — {summary}",
                      "fields": fields},
         )
 
@@ -661,6 +734,35 @@ def create_app(app_config: dict | None = None) -> FastAPI:
             content={"status": "error", "error_code": "INTERNAL_ERROR",
                      "message": "Internal server error."},
         )
+
+    # ---- A.4 Security / Observability middleware ----
+    # require_api_token (spec §16): when enabled, non-public endpoints require a static
+    # X-API-Token header matching env WATCHER_API_TOKEN — a coarse network gate for
+    # binding beyond 127.0.0.1 (JWT still applies on top). Also logs request id + duration.
+    _server_cfg = (app_config or {}).get("server", {}) or {}
+    _require_token = bool(_server_cfg.get("require_api_token", False))
+    _TOKEN_EXEMPT = ("/health", "/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect")
+
+    @app.middleware("http")
+    async def _observe_and_gate(request: Request, call_next):
+        req_id = uuid.uuid4().hex[:12]
+        path = request.url.path
+        if _require_token and not (path in _TOKEN_EXEMPT or path.startswith("/api/auth/")):
+            token = os.environ.get("WATCHER_API_TOKEN", "").strip()
+            if not token:
+                return JSONResponse(500, {"status": "error", "error_code": "CONFIG_ERROR",
+                    "message": "server.require_api_token is on but WATCHER_API_TOKEN is not set."})
+            if request.headers.get("X-API-Token", "") != token:
+                return JSONResponse(401, {"status": "error", "error_code": "API_TOKEN_REQUIRED",
+                    "message": "Missing or invalid X-API-Token header."})
+        start = time.perf_counter()
+        response = await call_next(request)
+        dur_ms = int((time.perf_counter() - start) * 1000)
+        # Observability: never logs body/secrets — only method, path, status, duration.
+        logger.info("req id=%s %s %s -> %s %dms",
+                    req_id, request.method, path, response.status_code, dur_ms)
+        response.headers["X-Request-ID"] = req_id
+        return response
 
     return app
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime
 from typing import Any
@@ -275,6 +276,66 @@ class Repository:
 
     def get_notification(self, notif_id: int) -> sqlite3.Row | None:
         return self._query_one("SELECT * FROM notifications WHERE id = ?", (notif_id,))
+
+    # ---------- chatbot conversations ----------
+    def create_chat_session(self, user_id: str, title: str = "",
+                            metadata: dict | None = None,
+                            session_id: str | None = None) -> str:
+        """Create a chat session. Pass session_id to use a client-supplied UUID
+        (for a brand-new session); otherwise a fresh UUIDv7 is generated."""
+        sid, now = (session_id or uuid7()), _now()
+        self._exec(
+            "INSERT INTO chat_sessions(id, user_id, title, message_count, created_at, "
+            "updated_at, last_message_at, metadata) VALUES(?, ?, ?, 0, ?, ?, NULL, ?)",
+            (sid, user_id, title, now, now, json.dumps(metadata) if metadata else None),
+        )
+        return sid
+
+    def get_chat_session(self, session_id: str) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM chat_sessions WHERE id = ?", (session_id,))
+
+    def list_chat_sessions(self, user_id: str) -> list[sqlite3.Row]:
+        return self._query(
+            "SELECT * FROM chat_sessions WHERE user_id = ? AND deleted_at IS NULL "
+            "ORDER BY updated_at DESC", (user_id,))
+
+    def list_chat_messages(self, session_id: str, limit: int | None = None,
+                           newest_first: bool = False) -> list[sqlite3.Row]:
+        order = "DESC" if newest_first else "ASC"
+        # id is UUIDv7 (time-ordered) — a stable chronological tiebreaker for equal timestamps.
+        sql = (f"SELECT * FROM chat_messages WHERE session_id = ? "
+               f"ORDER BY created_at {order}, id {order}")
+        if limit:
+            sql += f" LIMIT {int(limit)}"
+        return self._query(sql, (session_id,))
+
+    def soft_delete_chat_session(self, session_id: str) -> int:
+        cur = self._exec(
+            "UPDATE chat_sessions SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+            (_now(), session_id))
+        return cur.rowcount
+
+    def record_chat_turn(self, session_id: str, user_id: str, user_text: str,
+                         assistant_text: str, error_code: str | None = None,
+                         metadata: dict | None = None) -> None:
+        """Persist one turn (user + assistant) and bump the session counters in a SINGLE
+        transaction — the cheapest safe write path for heavy conversation logging."""
+        now = _now()
+        meta_json = json.dumps(metadata) if metadata else None
+        with self.db.lock:
+            c = self.db.conn
+            c.execute(
+                "INSERT INTO chat_messages(id, session_id, user_id, role, content, "
+                "error_code, metadata, created_at) VALUES(?, ?, ?, 'user', ?, NULL, NULL, ?)",
+                (uuid7(), session_id, user_id, user_text, now))
+            c.execute(
+                "INSERT INTO chat_messages(id, session_id, user_id, role, content, "
+                "error_code, metadata, created_at) VALUES(?, ?, ?, 'assistant', ?, ?, ?, ?)",
+                (uuid7(), session_id, user_id, assistant_text, error_code, meta_json, now))
+            c.execute(
+                "UPDATE chat_sessions SET message_count = message_count + 2, "
+                "last_message_at = ?, updated_at = ? WHERE id = ?", (now, now, session_id))
+            c.commit()
 
     # ---------- cooldown ----------
     def get_cooldown(self, rule_id: str):

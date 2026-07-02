@@ -35,8 +35,8 @@ class ApiServerTab(ttk.Frame):
                   font=("Segoe UI", 13, "bold")).pack(anchor="w")
         ttk.Label(
             self,
-            text="Bật server FastAPI để dùng REST API (đăng nhập JWT, chat AI, watcher). "
-                 "Chạy 1 worker, đọc/ghi cùng database với app.",
+            text="Start the FastAPI server to use the REST API (JWT auth, AI chat, watcher). "
+                 "Runs a single worker and shares this app's database.",
             foreground="#666", wraplength=760, justify="left",
         ).pack(anchor="w", pady=(2, 12))
 
@@ -67,8 +67,8 @@ class ApiServerTab(ttk.Frame):
 
         ttk.Label(
             self,
-            text="Mặc định đăng nhập: admin / admin123. Swagger UI ở /docs — bấm Authorize, "
-                 "dán access_token từ POST /api/auth/login.",
+            text="Default login: admin / admin123. Open Swagger UI at /docs — click Authorize "
+                 "and paste the access_token from POST /api/auth/login.",
             foreground="#888", wraplength=760, justify="left",
         ).pack(anchor="w", pady=(14, 0))
 
@@ -81,7 +81,7 @@ class ApiServerTab(ttk.Frame):
             return
         port = self.port_var.get().strip()
         if not port.isdigit():
-            self.status.config(text="✗  Port không hợp lệ", foreground="#a00")
+            self.status.config(text="✗  Invalid port", foreground="#a00")
             return
         config.ensure_dirs()
         log_path = config.LOG_DIR / "api_server.log"
@@ -94,7 +94,7 @@ class ApiServerTab(ttk.Frame):
                 stdout=self._log, stderr=subprocess.STDOUT,
             )
         except Exception as e:
-            self.status.config(text=f"✗  Không khởi động được: {e}", foreground="#a00")
+            self.status.config(text=f"✗  Failed to start: {e}", foreground="#a00")
             return
         self.ctx.repo.add_audit(self.ctx.current_user.id, "api.start", self._base_url())
         self._refresh_state()

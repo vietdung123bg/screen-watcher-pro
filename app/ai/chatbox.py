@@ -65,10 +65,10 @@ def send_message(base_url: str, session_id: str, message: str,
         return f"⚠ Server returned HTTP {resp.status_code}: {resp.text[:200]}"
 
     data = resp.json()
-    if not data.get("ok", False):
-        # Surface the error_code, not a traceback.
-        return f"⚠ AI error ({data.get('error_code')}): {data.get('reply', '')}"
-    return data.get("reply", "")
+    if data.get("status") == "success":
+        return data.get("reply", "")
+    # Surface the error_code + message, not a traceback.
+    return f"⚠ AI error ({data.get('error_code')}): {data.get('message', '')}"
 
 
 def launch_chatbox(base_url: str = DEFAULT_BASE_URL, session_id: str | None = None,
