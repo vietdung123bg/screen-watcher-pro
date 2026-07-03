@@ -2,7 +2,8 @@
 
 > Last checked against the official OpenCode docs on 2026-07-03.
 > References: [OpenCode Intro](https://opencode.ai/docs/), [CLI](https://opencode.ai/docs/cli/),
-> [Config](https://opencode.ai/docs/config/), [Providers](https://opencode.ai/docs/providers/).
+> [Config](https://opencode.ai/docs/config/), [Providers](https://opencode.ai/docs/providers/),
+> [Server](https://opencode.ai/docs/server/).
 
 ## 1. Why OpenCode is only the middle layer
 
@@ -134,11 +135,37 @@ opencode stats
 opencode export --sanitize
 ```
 
-Run a headless OpenCode backend:
+Run a headless OpenCode HTTP API server:
 
 ```bash
 opencode serve
 opencode run --attach http://localhost:4096 "Explain async/await"
+```
+
+By default, `opencode serve` listens on `127.0.0.1:4096`. It exposes OpenCode's
+own HTTP API, not the Screen Watcher API. The API contract is available as an
+OpenAPI 3.1 document at:
+
+```text
+http://localhost:4096/doc
+```
+
+Useful server endpoints include:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /global/health` | Check server health and version. |
+| `GET /provider` | List providers and connected provider state. |
+| `GET /session` | List OpenCode sessions. |
+| `POST /session` | Create a session. |
+| `POST /session/{id}/message` | Send a message and wait for a response. |
+| `GET /event` | Server-sent event stream. |
+| `GET /doc` | OpenAPI 3.1 documentation/spec page. |
+
+Use `OPENCODE_SERVER_PASSWORD` to protect `serve` and `web` with HTTP basic auth:
+
+```bash
+OPENCODE_SERVER_PASSWORD=your-password opencode serve
 ```
 
 Start the web interface:
@@ -166,6 +193,16 @@ The adapter builds this command shape:
 ```bash
 opencode run --model <provider/model>
 ```
+
+This repo currently uses the CLI subprocess path above. It does not call
+OpenCode's HTTP server API directly. That is a possible future integration path:
+run `opencode serve`, create/reuse sessions through the HTTP API, and call
+`/session/{id}/message` instead of spawning `opencode run` for each request.
+
+OpenCode's own source also treats the server API as a typed contract. In the
+OpenCode repo, `packages/opencode/src/server/server.ts` exposes an `openapi()`
+helper that returns `OpenApi.fromApi(PublicApi)`, and `PublicApi` is assembled
+from `packages/opencode/src/server/routes/instance/httpapi/public.ts`.
 
 By default, the prompt is passed through stdin:
 
@@ -298,4 +335,3 @@ Windows quoting or garbled multiline prompt
 - Keep `opencode serve` or `opencode web` bound to localhost unless you have explicit auth and network controls.
 - For project-specific behavior, prefer `AGENTS.md` and `opencode.json` over ad hoc prompt text.
 - For Screen Watcher runtime behavior, keep timeout/context/provider knobs in `config/rules.yaml` and `.chatbot.env`.
-
