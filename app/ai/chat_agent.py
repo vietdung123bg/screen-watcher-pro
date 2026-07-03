@@ -25,6 +25,7 @@ import time
 from app.ai.api_auth import is_admin
 from app.ai.models import (AIResponse, CONFIG_ERROR, PROVIDER_ERROR, RATE_LIMITED,
                            TIMEOUT, ChatMessage)
+from app.ai.opencode_adapter import OpenCodeAdapter, compose_prompt
 from app.ai.provider_config import ProviderConfig
 from app.ai.watcher_context_service import WatcherContextService
 from app.services.auth import CurrentUser, hash_password
@@ -53,9 +54,26 @@ def _deny(user: CurrentUser, thing: str) -> dict:
     return {"error": f"You are a {user.role_name} and do not have permission to {thing}."}
 
 
+OUT_OF_SCOPE_REPLY = (
+    "Câu hỏi này nằm ngoài phạm vi hỗ trợ của Tool Watcher Assistant. "
+    "Vui lòng hỏi về kết quả giám sát, OCR, rule hoặc trạng thái hệ thống."
+)
+
 SYSTEM_PROMPT = (
     "You are the assistant of Screen Watcher Pro, a desktop app that captures browser "
-    "windows, runs OCR, evaluates alert rules and sends emails. Answer concisely in English.\n"
+    "windows, runs OCR, evaluates alert rules and sends emails. Answer concisely, in the "
+    "same language the user writes in (Vietnamese or English).\n"
+    "SCOPE CONTROL: you ONLY assist with operating Tool Watcher — watcher results, OCR "
+    "text, alert rules, email notifications, executions, user accounts and system status. "
+    "Questions about the current status, issues, errors, alerts or operational health of "
+    "'the system' / 'hệ thống' refer to Tool Watcher and ARE in scope — answer them from "
+    "the watcher context and tools.\n"
+    "IN-SCOPE examples (always answer): 'Issue hiện tại của hệ thống đang là gì?', "
+    "'Đánh giá hiện trạng vận hành', 'Trạng thái watcher gần nhất?', 'Rule nào đang match?', "
+    "'What is the latest result?'.\n"
+    "OUT-OF-SCOPE examples (always refuse): 'Cách nấu thịt kho tàu?', 'Kết quả bóng đá?', "
+    "'Thời tiết hôm nay?', 'Viết giúp bài thơ'. For those, do NOT answer and do NOT call "
+    f"any tool; reply with exactly this sentence and nothing else: \"{OUT_OF_SCOPE_REPLY}\"\n"
     "Use the provided tools to look up or act on data (watcher results, executions, user "
     "accounts) whenever the question needs live data — do not invent values.\n"
     "Authorization is enforced by the tools themselves: if a tool returns an 'error' message, "
@@ -143,6 +161,7 @@ class ChatAgent:
         self.repo = repo
         self.ctx = context_service
         self.capture_fn = capture_fn
+        self.opencode = OpenCodeAdapter(provider)   # engine "opencode" (spec §11)
         self._roles = {r["id"]: r["name"] for r in repo.list_roles()}
 
     # ---------- public API ----------
@@ -168,6 +187,18 @@ class ChatAgent:
                 "Set ai.mock=false and configure the provider API key in .env to enable it.",
                 model=model, provider=provider, session_id=session_id,
                 execution_context_used=ctx_used, latency_ms=0)
+
+        # Engine "opencode" (spec §11): one-shot prompt through the OpenCode CLI.
+        # No DB tools on this path; the CLI manages its own provider keys, so the
+        # snap.usable() key check below does not apply.
+        if self.cfg.resolve_engine() == "opencode":
+            prompt = compose_prompt(message, ctx_block, history)
+            logger.info("chat START user=%s role=%s session=%s engine=opencode "
+                        "provider=%s ctx_used=%s",
+                        user.username, user.role_name, session_id, provider, ctx_used)
+            logger.info("chat USER message: %s", _short(message))
+            return self.opencode.run(prompt, snap, session_id=session_id,
+                                     ctx_used=ctx_used)
 
         if not snap.usable():
             return AIResponse.failure(

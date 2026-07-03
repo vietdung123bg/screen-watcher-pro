@@ -38,7 +38,7 @@ rules:
 owners:
   ops_team:
     emails:
-      - trungnt.work.tech@gmail.com
+      - dungtv3@fpt.com
   finance_team:
     emails:
       - finance-owner@example.com
@@ -47,12 +47,12 @@ owners:
 # enabled: false -> DRY-RUN (simulate only, safe default). true -> send for real.
 # See README section 5.1 for setting up Brevo as the SMTP relay.
 email:
-  enabled: false
+  enabled: true
   provider: custom                       # gmail | outlook | office365 | custom (Brevo/SendGrid)
   smtp_host: smtp-relay.brevo.com
   smtp_port: 587
   use_tls: true
-  username: b03ca9001@smtp-brevo.com  # SMTP login (NOT the password)
+  username: b03ca9001@smtp-brevo.com   # SMTP login (NOT the password)
   from: vietdungpy123@gmail.com     # must be a VERIFIED sender
   password_env: WATCHER_SMTP_PASSWORD        # the SMTP key/password lives in .env
 
@@ -61,11 +61,6 @@ email:
 # *_ENDPOINT) and re-read on every request. Only non-secret knobs live here:
 ai:
   provider: openrouter       # fallback if .env PROVIDER is unset (openrouter|openai|azure_openai|local)
-  engine: sdk                # sdk = direct OpenAI-compatible SDK (with DB tools)
-                             # opencode = via the OpenCode CLI subprocess (spec §11);
-                             #   requires `opencode` on PATH (or env OPENCODE_BIN),
-                             #   model override: env OPENCODE_MODEL (e.g. azure/gpt-4o-mini),
-                             #   live switch: env CHAT_ENGINE=sdk|opencode
   timeout_seconds: 120       # per-request timeout (spec: 120-180s)
   max_context_chars: 6000    # cap watcher context injected into the prompt
   mock: false                # true -> canned reply (no real LLM needed)
@@ -87,4 +82,4 @@ server:
 # enabled: false -> cooldown OFF (for TESTING: a matched rule ALWAYS sends, ignores the wait)
 cooldown:
   default_minutes: 15
-  enabled: false
+  enabled: true

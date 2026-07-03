@@ -104,7 +104,9 @@ bằng chứng kiểm tra).
 
 ```
 screen-watcher-pro/
+├── run.cmd                         # Windows launcher: desktop/api/notebook/demo/test
 ├── run.py                          # Entry point — nạp config + DB + UI
+├── RUNBOOK.md                      # Kịch bản chạy demo workshop + 2 câu chat bắt buộc
 ├── requirements.txt
 ├── .ocr.env / .smtp.env / .chatbot.env  # secrets (gitignored); *.example đi kèm
 ├── config/
@@ -331,6 +333,26 @@ Sửa YAML/`.env` xong nhớ **khởi động lại app**.
 
 ## 6. Chạy & sử dụng
 
+Chạy nhanh trên Windows:
+
+```cmd
+run.cmd
+```
+
+`run.cmd` tự tạo `.venv`, cài dependencies, copy file mẫu nếu thiếu, rồi chạy desktop app. Các mode khác:
+
+```cmd
+run.cmd desktop    :: desktop app
+run.cmd api        :: FastAPI server tại http://127.0.0.1:8000
+run.cmd notebook   :: Jupyter chatbox
+run.cmd demo       :: API server + Jupyter chatbox
+run.cmd test       :: pytest
+```
+
+Runbook demo workshop: [RUNBOOK.md](RUNBOOK.md).
+
+Chạy thủ công:
+
 ```powershell
 python run.py
 ```
@@ -355,6 +377,17 @@ python run.py
 6. Tab **👥 User Management** (admin).
 7. Tab **🚀 API Server** (admin): bật/tắt server REST API ngay trong app (nút *Start/Stop*), mở nhanh Swagger `/docs`. Server chạy tiến trình riêng, tự tắt khi thoát app.
 8. Tab **💬 Chatbot** (mọi user): trò chuyện với trợ lý AI ngay trong app. AI gọi tool truy vấn/thao tác DB **theo đúng quyền của bạn** (vd chỉ admin mới tạo/xóa user qua chat). Có nút **🆕 New chat** (bắt đầu phiên mới) và **hiển thị provider/model đang dùng** ở góc phải. Provider/model chọn ở `.chatbot.env`.
+
+### Demo chat AI có kiểm soát
+
+Sau khi đã có ít nhất 1 kết quả watcher mới (Capture & OCR hoặc `GET /api/watcher/executions/latest` trả `has_data:true`), demo 2 câu:
+
+| Câu hỏi | Kỳ vọng |
+|--------|---------|
+| `Issue hiện tại đang là gì?` | Assistant đánh giá hiện trạng vận hành dựa trên watcher context mới nhất: OCR, rule match, severity, email/cooldown. Nếu chưa có dữ liệu, assistant nói rõ chưa đủ dữ liệu. |
+| `cách nấu thịt kho tàu thế nào?` | Assistant từ chối vì ngoài phạm vi Tool Watcher. Phản hồi bắt buộc: `Câu hỏi này nằm ngoài phạm vi hỗ trợ của Tool Watcher Assistant. Vui lòng hỏi về kết quả giám sát, OCR, rule hoặc trạng thái hệ thống.` |
+
+Case 1 chứng minh trợ lý không chỉ chat chung chung mà có thể đọc hiện trạng vận hành. Case 2 chứng minh AI assistance được kiểm soát phạm vi, không trả lời nội dung ngoài nghiệp vụ.
 
 ### Demo cooldown nhanh
 Mở một trang có chữ `ERROR` hoặc `Daily Sync Failed`, chụp Chrome **2 lần liên tiếp**:

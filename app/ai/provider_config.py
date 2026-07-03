@@ -19,6 +19,10 @@ Only non-secret knobs live in config/rules.yaml `ai:` (validated fail-fast at bo
       max_context_chars: 6000      # cap watcher context injected into the prompt
       mock: false                  # true -> skip the real API, return a canned reply
       provider: openrouter         # optional fallback if .env PROVIDER is unset
+      engine: sdk                  # sdk (direct OpenAI-compatible SDK, with DB tools)
+                                   # | opencode (spec §11: via the OpenCode CLI subprocess)
+
+The engine can also be switched live with env CHAT_ENGINE=sdk|opencode (like PROVIDER).
 
 ENDPOINT is only meaningful for AZURE_OPENAI (required) and LOCAL (base URL);
 OPENAI/OPENROUTER use a fixed base URL.
@@ -56,6 +60,8 @@ _ALIASES = {
 DEFAULT_TIMEOUT = 120
 DEFAULT_MAX_CONTEXT_CHARS = 6000
 DEFAULT_PROVIDER = "openrouter"
+DEFAULT_ENGINE = "sdk"
+VALID_ENGINES = ("sdk", "opencode")
 
 
 class ProviderConfigError(ValueError):
@@ -98,6 +104,7 @@ class ProviderConfig:
     max_context_chars: int
     mock: bool
     default_provider: str
+    engine: str = DEFAULT_ENGINE
 
     @classmethod
     def from_app_config(cls, app_config: dict) -> "ProviderConfig":
@@ -118,8 +125,14 @@ class ProviderConfig:
         default_provider = _normalize(str(ai.get("provider", DEFAULT_PROVIDER)))
         if default_provider not in PROVIDERS:
             default_provider = DEFAULT_PROVIDER
+
+        engine = str(ai.get("engine", DEFAULT_ENGINE)).strip().lower()
+        if engine not in VALID_ENGINES:
+            raise ProviderConfigError(
+                f"ai.engine must be one of {', '.join(VALID_ENGINES)} (got '{engine}').")
         return cls(timeout_seconds=timeout_seconds, max_context_chars=max_context_chars,
-                   mock=bool(ai.get("mock", False)), default_provider=default_provider)
+                   mock=bool(ai.get("mock", False)), default_provider=default_provider,
+                   engine=engine)
 
     # ---- dynamic resolution (reads .env fresh every call) ----
     def resolve(self) -> ResolvedProvider:
@@ -145,6 +158,12 @@ class ProviderConfig:
             api_version=api_version, key_env=spec["key_env"],
             key_optional=bool(spec.get("key_optional", False)))
 
+    def resolve_engine(self) -> str:
+        """Which chat engine to use, resolved live: env CHAT_ENGINE wins over
+        ai.engine from rules.yaml (invalid values fall back to the yaml one)."""
+        env = os.environ.get("CHAT_ENGINE", "").strip().lower()
+        return env if env in VALID_ENGINES else self.engine
+
     def safe_summary(self) -> str:
         """Loggable one-liner. NEVER includes the API key."""
         r = self.resolve()
@@ -156,5 +175,6 @@ class ProviderConfig:
             key_state = "not-required"
         else:
             key_state = "MISSING"
-        return (f"provider={r.provider} model={r.model} timeout={self.timeout_seconds}s "
+        return (f"engine={self.resolve_engine()} provider={r.provider} model={r.model} "
+                f"timeout={self.timeout_seconds}s "
                 f"max_ctx={self.max_context_chars} key[{r.key_env}]={key_state}")
