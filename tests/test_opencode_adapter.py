@@ -43,6 +43,20 @@ def test_compose_prompt_has_all_sections():
     assert "Nếu dữ liệu không đủ, nói rõ là chưa đủ dữ liệu." in p
 
 
+def test_compose_prompt_has_scope_guardrail():
+    """Scope control: the prompt must instruct the model to refuse off-topic
+    questions with the exact canned sentence (assistance được kiểm soát)."""
+    p = compose_prompt("Cách nấu thịt kho tàu?", "ctx")
+    assert oa.OUT_OF_SCOPE_REPLY in p
+    assert "Chỉ trả lời câu hỏi liên quan vận hành Tool Watcher" in p
+
+
+def test_sdk_system_prompt_has_scope_guardrail():
+    from app.ai import chat_agent
+    assert chat_agent.OUT_OF_SCOPE_REPLY in chat_agent.SYSTEM_PROMPT
+    assert "SCOPE CONTROL" in chat_agent.SYSTEM_PROMPT
+
+
 def test_compose_prompt_without_context():
     p = compose_prompt("hello", "")
     assert "(no watcher context provided)" in p

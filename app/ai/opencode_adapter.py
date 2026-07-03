@@ -56,6 +56,11 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 # stateless from our point of view — we keep the session history ourselves).
 MAX_HISTORY_TURNS = 6
 
+OUT_OF_SCOPE_REPLY = (
+    "Câu hỏi này nằm ngoài phạm vi hỗ trợ của Tool Watcher Assistant. "
+    "Vui lòng hỏi về kết quả giám sát, OCR, rule hoặc trạng thái hệ thống."
+)
+
 PROMPT_TEMPLATE = """System role:
 Bạn là AI assistant hỗ trợ vận hành Tool Watcher.
 
@@ -68,6 +73,8 @@ User question:
 Instruction:
 Trả lời ngắn gọn, dựa trên dữ liệu được cung cấp.
 Nếu dữ liệu không đủ, nói rõ là chưa đủ dữ liệu.
+Chỉ trả lời câu hỏi liên quan vận hành Tool Watcher (kết quả giám sát, OCR, rule, email, hệ thống).
+Nếu câu hỏi ngoài phạm vi đó (ví dụ nấu ăn, thể thao, kiến thức chung), trả lời đúng một câu: "{out_of_scope}"
 """
 
 
@@ -82,7 +89,8 @@ def compose_prompt(message: str, ctx_block: str,
         lines = "\n".join(f"{'User' if m.role == 'user' else 'Assistant'}: {m.content}"
                           for m in turns)
         hist_text = f"\nConversation so far:\n{lines}\n"
-    return PROMPT_TEMPLATE.format(context=context, history=hist_text, message=message)
+    return PROMPT_TEMPLATE.format(context=context, history=hist_text, message=message,
+                                  out_of_scope=OUT_OF_SCOPE_REPLY)
 
 
 class OpenCodeAdapter:
