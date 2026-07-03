@@ -17,8 +17,22 @@ if not exist ".venv\Scripts\python.exe" (
 
 set "VENV_PY=%CD%\.venv\Scripts\python.exe"
 
-if not exist ".venv\.deps.ok" (
-  echo [setup] Installing dependencies...
+:: (Re)install deps when the venv is fresh OR requirements.txt changed since the
+:: last successful install. The old check only looked at the marker file, so newly
+:: added dependencies (e.g. notebook, pywebview, pytest) were never installed.
+set "NEED_DEPS=1"
+if exist ".venv\.deps.ok" (
+  set "NEED_DEPS="
+  for /f "delims=" %%F in ('dir /b /o-d "requirements.txt" ".venv\.deps.ok" 2^>nul') do (
+    if not defined _NEWEST_SEEN (
+      set "_NEWEST_SEEN=1"
+      if /I "%%F"=="requirements.txt" set "NEED_DEPS=1"
+    )
+  )
+  set "_NEWEST_SEEN="
+)
+if defined NEED_DEPS (
+  echo [setup] Installing/updating dependencies...
   "%VENV_PY%" -m pip install --upgrade pip
   if errorlevel 1 exit /b %ERRORLEVEL%
   "%VENV_PY%" -m pip install -r requirements.txt
