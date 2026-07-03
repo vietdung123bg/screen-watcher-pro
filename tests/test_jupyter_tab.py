@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.ui.jupyter_tab import build_command, notebook_url
+from app.ui.jupyter_tab import build_command, build_webview_command, notebook_url
 
 
 def test_build_command_uses_no_browser_and_binds_host_port():
@@ -28,3 +28,16 @@ def test_notebook_url_without_token():
 def test_notebook_url_preserves_localhost_host_and_port():
     url = notebook_url("http://localhost:9999/tree?token=abc", "chatbox.ipynb")
     assert url == "http://localhost:9999/notebooks/chatbox.ipynb?token=abc"
+
+
+def test_build_webview_command_targets_the_child_module():
+    cmd = build_webview_command("py.exe", "http://127.0.0.1:8888/notebooks/chatbox.ipynb?token=x")
+    assert cmd[:3] == ["py.exe", "-m", "app.ui.jupyter_webview"]
+    assert cmd[3] == "http://127.0.0.1:8888/notebooks/chatbox.ipynb?token=x"
+    assert cmd[4]                                   # a window title is always passed
+
+
+def test_webview_child_module_imports_without_pywebview():
+    # Importing the child module must not require pywebview (imported lazily in main()).
+    import app.ui.jupyter_webview as jw
+    assert jw.main([]) == 2                         # no URL arg -> usage error, no crash

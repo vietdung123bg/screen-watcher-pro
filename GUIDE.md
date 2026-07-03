@@ -470,14 +470,18 @@ Chỉ hiện với **admin** (`user.manage`). Khởi động **Jupyter server** 
 
 - **Host / Port** — mặc định `127.0.0.1` / `8888`.
 - **▶ Start Jupyter** — chạy `jupyter notebook … --no-browser` trong **tiến trình con**. App **tự đọc
-  URL kèm token** từ log Jupyter; trạng thái chuyển **● Running** khi có URL.
-- **📓 Open notebook** — mở đúng `chatbox.ipynb` (kèm token) trên trình duyệt.
-- **■ Stop** — dừng Jupyter server.
+  URL kèm token** từ log Jupyter; khi có URL, **tự mở giao diện Jupyter trong một cửa sổ WebView2
+  do app quản lý** (một tiến trình con riêng, dùng pywebview).
+- **📓 Open in app** — mở lại cửa sổ WebView2 nếu đã đóng.
+- **🌐 Browser** — mở `chatbox.ipynb` (kèm token) bằng trình duyệt ngoài.
+- **■ Stop** — dừng Jupyter server **và** đóng cửa sổ WebView2.
 
 Ghi chú:
-- Cần cài **Jupyter** (`pip install notebook`, đã có trong `requirements.txt`). Nếu thiếu, tab báo
-  *"Jupyter is not installed — run: pip install notebook"*.
-- Tiến trình con, **tự tắt khi thoát app**. Log ghi vào `logs/jupyter.log`.
+- Cần **Jupyter** (`pip install notebook`) và **pywebview** (`pip install pywebview`) cho cửa sổ trong
+  app — cả hai đã có trong `requirements.txt`. Thiếu Jupyter → tab báo *"Jupyter is not installed…"*;
+  thiếu pywebview → tự mở bằng **trình duyệt ngoài** (kèm gợi ý cài).
+- Cửa sổ WebView2 dùng engine Edge (có sẵn trên Windows 11). Chạy tiến trình riêng nên không treo
+  app; **cả server lẫn cửa sổ tự tắt khi thoát app**. Log server ghi vào `logs/jupyter.log`.
 - Trong notebook: đăng nhập `admin / admin123` rồi chạy các cell để chat qua watcher API.
 
 ---
