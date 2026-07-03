@@ -31,6 +31,7 @@ class ChatbotTab(ttk.Frame):
         self.ctx = ctx
         self._history: list[ChatMessage] = []
         self._busy = False
+        self._streaming = False              # True once answer tokens begin streaming in
         self._readonly = False               # True while viewing another user's session
         self._suppress_select = False        # guard: programmatic tree selection
         self._is_admin = is_admin(ctx.current_user)
@@ -86,6 +87,10 @@ class ChatbotTab(ttk.Frame):
         self.view.tag_configure("you", foreground="#06c", font=("Segoe UI", 11, "bold"))
         self.view.tag_configure("ai", foreground="#0a7", font=("Segoe UI", 11, "bold"))
         self.view.tag_configure("err", foreground="#a00")
+
+        self.status_lbl = ttk.Label(right, text="", foreground="#0a7",
+                                     font=("Segoe UI", 9, "italic"))
+        self.status_lbl.pack(anchor="w", pady=(4, 0))
 
         row = ttk.Frame(right)
         row.pack(fill="x", pady=(8, 0))
@@ -249,7 +254,7 @@ class ChatbotTab(ttk.Frame):
         self._refresh_provider()          # provider may have changed in .env
         self._append("ai", "Assistant", "Started a new conversation. How can I help?")
 
-    # ---------- send ----------
+    # ---------- send (streaming) ----------
     def _send(self) -> None:
         if self._busy or self._readonly:
             return
@@ -259,17 +264,27 @@ class ChatbotTab(ttk.Frame):
         self.entry.delete(0, "end")
         self._append("you", "You", text)
         self._busy = True
+        self._streaming = False           # becomes True once the first answer token arrives
         self.send_btn.config(state="disabled")
-        self._append("ai", "Assistant", "…thinking…")
+        self.status_lbl.config(text="…thinking…")
         threading.Thread(target=self._run, args=(text,), daemon=True).start()
 
     def _run(self, text: str) -> None:
         user = self.ctx.current_user
+
+        def on_event(ev):
+            # Runs on the worker thread — marshal every UI update onto the Tk thread.
+            kind, payload = ev
+            if kind == "delta" and payload:
+                self.after(0, self._on_delta, payload)
+            elif kind == "tool_call":
+                self.after(0, self._on_tool, payload.get("name", ""))
+
         try:
             if self._session_id is None:
                 self._session_id = self._store.ensure_session(user.id, None, text)
             result = self._agent.chat(user, text, session_id=self._session_id,
-                                      history=self._history)
+                                      history=self._history, on_event=on_event)
             # Persist the turn (best-effort; never break the UI on a store error).
             try:
                 self._store.record(self._session_id, user.id, text, result)
@@ -280,26 +295,53 @@ class ChatbotTab(ttk.Frame):
             err = str(e)
         else:
             err = None
-        self.after(0, self._show_result, text, result, err)
+        self.after(0, self._finish_result, text, result, err)
 
-    def _show_result(self, user_text: str, result, err) -> None:
-        # remove the temporary "…thinking…" line
+    def _on_tool(self, name: str) -> None:
+        """Show which tool the assistant is calling (before the answer starts streaming)."""
+        if not self._streaming:
+            self.status_lbl.config(text=f"⚙  using {name}…")
+
+    def _on_delta(self, chunk: str) -> None:
+        """Append a streamed answer token, opening the 'Assistant:' line on first token."""
         self.view.config(state="normal")
-        self.view.delete("end-3l", "end-1l")
+        if not self._streaming:
+            self._streaming = True
+            self.status_lbl.config(text="")
+            self.view.insert("end", "Assistant: ", "ai")
+        self.view.insert("end", chunk)
         self.view.config(state="disabled")
+        self.view.see("end")
 
+    def _finish_result(self, user_text: str, result, err) -> None:
         self._busy = False
         self.send_btn.config(state="normal")
+        self.status_lbl.config(text="")
         self.entry.focus_set()
 
+        def _end_streamed_line():
+            self.view.config(state="normal")
+            self.view.insert("end", "\n\n")
+            self.view.config(state="disabled")
+            self.view.see("end")
+
         if err is not None or result is None:
+            if self._streaming:
+                _end_streamed_line()
             self._append("err", "Error", err or "Unknown error.")
             return
         if result.ok:
+            if self._streaming:
+                # The full reply already streamed into the view — just close the line.
+                _end_streamed_line()
+            else:
+                # Nothing streamed (edge case) — render the reply in one shot.
+                self._append("ai", "Assistant", result.reply)
             self._history.append(ChatMessage("user", user_text))
             self._history.append(ChatMessage("assistant", result.reply))
-            self._append("ai", "Assistant", result.reply)
         else:
+            if self._streaming:
+                _end_streamed_line()
             self._append("err", "Error", f"{result.error_code}: {result.message}")
         # Reflect the new/updated session in the history list (title, timestamp, order).
         self._load_sessions()

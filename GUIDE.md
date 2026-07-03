@@ -482,9 +482,15 @@ Có cho **mọi tài khoản đăng nhập**. Chat trực tiếp trong app với
     `ChatStore.ensure_session` (phiên của người khác → `PermissionError`).
 - **Hiển thị provider + model đang dùng** ở góc phải header (vd *"Provider: openrouter · Model: openai/gpt-4o-mini"*), cập nhật khi bấm New chat.
 - LLM chạy **nền** nên UI không treo. Provider/model chọn ở `.chatbot.env` (xem §14.0).
+- **Trả lời dạng streaming**: câu trả lời hiện dần **theo token** thay vì đợi xong mới hiện. Khi
+  trợ lý đang gọi tool, dòng trạng thái hiển thị *⚙ using {tên_tool}…*.
 - **Hội thoại được lưu vào DB theo từng user** (bảng `chat_sessions`/`chat_messages`) — tối ưu
   ghi nặng: chỉ lưu tin nhắn user + trả lời cuối, kèm metadata (model/provider/latency).
-- **Log chi tiết**: mỗi lần chat + từng tool call (tên, tham số, kết quả) ghi vào `logs/`.
+- **Log chi tiết LLM** (cả app desktop lẫn API, cùng dùng `ChatAgent` → ghi vào `logs/`): mỗi
+  lượt chat log `chat START` (user/role/session/provider/model/engine/ctx_used/số history),
+  câu hỏi của user, context đã chèn; mỗi bước gọi LLM log số stream chunk; **suy nghĩ (thinking)**
+  của model (`reasoning` và/hoặc content trước khi gọi tool); từng **tool call** (tên + tham số +
+  người gọi) và **tool result**; cuối cùng là `chat REPLY` kèm latency + độ dài.
 
 ## 14. REST API (cho client ngoài)
 
@@ -559,7 +565,7 @@ because there is no tool to support it."* ("admin" = role `admin` hoặc có quy
 | admin | POST | `/api/admin/users` | admin |
 | admin | PUT | `/api/admin/users/{id}` | admin |
 | admin | DELETE | `/api/admin/users/{id}` | admin (không xóa được tài khoản admin) |
-| ai-chat | POST | `/api/chat` | user/admin — `session_id` phải là **UUID** (bỏ trống/UUID chưa có → phiên mới; UUID của mình → nối tiếp; text như "demo" → 422) |
+| ai-chat | POST | `/api/chat` | user/admin — `session_id` phải là **UUID** (bỏ trống/UUID chưa có → phiên mới; UUID của mình → nối tiếp; text như "demo" → 422). Thêm `"stream": true` để nhận **SSE** (event `meta`/`thinking`/`delta`/`tool_call`/`tool_result`/`done`, kết `[DONE]`) |
 | ai-chat | GET | `/api/chat/provider` | user/admin — provider + model đang dùng |
 | ai-chat | POST | `/api/chat/sessions` | user/admin — tạo phiên mới, trả `session_id` |
 | ai-chat | GET | `/api/chat/sessions` · `/api/chat/sessions/{id}` | user/admin (của mình; admin: bất kỳ) |

@@ -176,7 +176,81 @@ class ChatAgent:
     def chat(self, user: CurrentUser, message: str, session_id: str,
              history: list[ChatMessage] | None = None,
              include_context: bool = True,
-             max_context_chars: int | None = None) -> AIResponse:
+             max_context_chars: int | None = None,
+             on_event=None) -> AIResponse:
+        """Run one chat turn (STREAMING under the hood) and return the full AIResponse.
+
+        Pass `on_event(event)` to receive live events as they happen — a tuple
+        (kind, payload) where kind is one of: 'meta', 'thinking', 'delta',
+        'tool_call', 'tool_result', 'final', 'error'. The desktop Chatbot tab uses
+        this to render the answer as it streams. The returned reply is always the
+        COMPLETE final text (used for persistence)."""
+        prep = self._prepare(user, message, session_id, history,
+                             include_context, max_context_chars)
+        if isinstance(prep, AIResponse):          # mock / opencode / config error
+            if on_event and prep.reply:
+                on_event(("delta", prep.reply))
+                on_event(("final", prep.reply))
+            return prep
+
+        client, model, provider, ctx_used, messages = prep
+        start = time.monotonic()
+        final_text = ""
+        try:
+            for ev in self._iter_turn(client, model, user, messages):
+                if on_event:
+                    on_event(ev)
+                if ev[0] == "final":
+                    final_text = ev[1]
+        except Exception as e:
+            return self._map_error(e, model, provider, session_id)
+        latency = int((time.monotonic() - start) * 1000)
+        reply = (final_text or "").strip()
+        logger.info("chat REPLY (%dms, %dch): %s", latency, len(reply), _short(reply))
+        return AIResponse.success(reply, model=model, provider=provider, session_id=session_id,
+                                  execution_context_used=ctx_used, latency_ms=latency)
+
+    def chat_stream(self, user: CurrentUser, message: str, session_id: str,
+                    history: list[ChatMessage] | None = None,
+                    include_context: bool = True,
+                    max_context_chars: int | None = None):
+        """Generator variant for server-sent events (API `/api/chat` with stream=true).
+
+        Yields (kind, payload) events; the caller accumulates 'delta' text and reads
+        the terminal 'final' event for the complete reply (to persist)."""
+        prep = self._prepare(user, message, session_id, history,
+                             include_context, max_context_chars)
+        if isinstance(prep, AIResponse):
+            yield ("meta", {"model": prep.model, "provider": prep.provider,
+                            "execution_context_used": prep.execution_context_used})
+            if prep.ok:
+                if prep.reply:
+                    yield ("delta", prep.reply)
+                yield ("final", prep.reply)
+            else:
+                yield ("error", {"error_code": prep.error_code, "message": prep.message})
+                yield ("final", "")
+            return
+
+        client, model, provider, ctx_used, messages = prep
+        yield ("meta", {"model": model, "provider": provider,
+                        "execution_context_used": ctx_used})
+        try:
+            for ev in self._iter_turn(client, model, user, messages):
+                yield ev
+        except Exception as e:
+            resp = self._map_error(e, model, provider, session_id)
+            logger.warning("chat stream aborted: %s", type(e).__name__)
+            yield ("error", {"error_code": resp.error_code, "message": resp.message})
+            yield ("final", "")
+
+    def _prepare(self, user: CurrentUser, message: str, session_id: str,
+                 history, include_context: bool, max_context_chars):
+        """Resolve config + watcher context, handle the mock/opencode/config-error
+        short-circuits, and build the SDK message list.
+
+        Returns an AIResponse to short-circuit the turn, or the tuple
+        (client, model, provider, ctx_used, messages) for the streaming loop."""
         snap = self.cfg.resolve()          # dynamic: reads .env fresh (provider/model/key)
         provider, model = snap.provider, snap.model
         cap = max_context_chars or self.cfg.max_context_chars
@@ -205,8 +279,7 @@ class ChatAgent:
                         "provider=%s ctx_used=%s",
                         user.username, user.role_name, session_id, provider, ctx_used)
             logger.info("chat USER message: %s", _short(message))
-            return self.opencode.run(prompt, snap, session_id=session_id,
-                                     ctx_used=ctx_used)
+            return self.opencode.run(prompt, snap, session_id=session_id, ctx_used=ctx_used)
 
         if not snap.usable():
             return AIResponse.failure(
@@ -226,24 +299,21 @@ class ChatAgent:
         if ctx_block:
             sys_text += "\n\n=== LATEST WATCHER RESULT ===\n" + ctx_block
         messages = [{"role": "system", "content": sys_text}]
+        n_hist = 0
         for m in (history or []):
             if m.role in ("user", "assistant") and m.content:
                 messages.append({"role": m.role, "content": m.content})
+                n_hist += 1
         messages.append({"role": "user", "content": message})
 
-        logger.info("chat START user=%s role=%s session=%s provider=%s model=%s ctx_used=%s",
-                    user.username, user.role_name, session_id, provider, model, ctx_used)
+        logger.info("chat START user=%s role=%s session=%s provider=%s model=%s "
+                    "engine=sdk stream=on ctx_used=%s history_msgs=%d",
+                    user.username, user.role_name, session_id, provider, model,
+                    ctx_used, n_hist)
         logger.info("chat USER message: %s", _short(message))
-
-        start = time.monotonic()
-        try:
-            reply = self._run_loop(client, snap.model, user, messages)
-        except Exception as e:
-            return self._map_error(e, model, provider, session_id)
-        latency = int((time.monotonic() - start) * 1000)
-        logger.info("chat REPLY (%dms): %s", latency, _short(reply))
-        return AIResponse.success(reply, model=model, provider=provider, session_id=session_id,
-                                  execution_context_used=ctx_used, latency_ms=latency)
+        if ctx_block:
+            logger.info("chat CONTEXT injected: %d chars of watcher context", len(ctx_block))
+        return (client, model, provider, ctx_used, messages)
 
     # ---------- LLM plumbing ----------
     def _build_client(self, snap):
@@ -256,39 +326,90 @@ class ChatAgent:
         return OpenAI(api_key=snap.api_key or "not-required", base_url=snap.base_url,
                       timeout=self.cfg.timeout_seconds)
 
-    def _run_loop(self, client, model: str, user: CurrentUser, messages: list[dict]) -> str:
+    def _iter_turn(self, client, model: str, user: CurrentUser, messages: list[dict]):
+        """Streaming tool-calling loop. A generator yielding (kind, payload) events:
+          ('thinking', text)  reasoning tokens (models that expose reasoning_content)
+          ('delta', text)     answer tokens as they stream
+          ('tool_call', {name, arguments})
+          ('tool_result', {name, result})
+          ('final', text)     the complete answer (terminal event)
+
+        Every LLM step, tool call and tool result is logged for observability."""
         for step in range(1, MAX_TOOL_STEPS + 1):
-            resp = client.chat.completions.create(
+            logger.info("chat step %d: requesting streamed completion (model=%s)", step, model)
+            stream = client.chat.completions.create(
                 model=model, messages=messages, tools=TOOLS,
-                tool_choice="auto", temperature=0)
-            choice = resp.choices[0].message
-            if not choice.tool_calls:
-                logger.info("chat step %d: model produced a final answer (no tool calls)", step)
-                return (choice.content or "").strip()
-            logger.info("chat step %d: model requested %d tool call(s)",
-                        step, len(choice.tool_calls))
+                tool_choice="auto", temperature=0, stream=True)
+
+            content_parts: list[str] = []
+            reasoning_parts: list[str] = []
+            tool_slots: dict[int, dict] = {}
+            n_chunks = 0
+            for chunk in stream:
+                n_chunks += 1
+                if not getattr(chunk, "choices", None):
+                    continue
+                delta = chunk.choices[0].delta
+                # Some providers (DeepSeek/OpenRouter reasoning models) stream a
+                # separate reasoning channel — surface it as "thinking".
+                rc = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
+                if rc:
+                    reasoning_parts.append(rc)
+                    yield ("thinking", rc)
+                if getattr(delta, "content", None):
+                    content_parts.append(delta.content)
+                    yield ("delta", delta.content)
+                for tcd in (getattr(delta, "tool_calls", None) or []):
+                    slot = tool_slots.setdefault(tcd.index, {"id": None, "name": "", "args": ""})
+                    if tcd.id:
+                        slot["id"] = tcd.id
+                    fn = getattr(tcd, "function", None)
+                    if fn is not None:
+                        if fn.name:
+                            slot["name"] += fn.name
+                        if fn.arguments:
+                            slot["args"] += fn.arguments
+
+            content = "".join(content_parts).strip()
+            reasoning = "".join(reasoning_parts).strip()
+            logger.info("chat step %d: %d stream chunk(s); content=%dch reasoning=%dch "
+                        "tool_calls=%d", step, n_chunks, len(content), len(reasoning),
+                        len(tool_slots))
+            if reasoning:
+                logger.info("chat step %d THINKING (reasoning): %s", step, _short(reasoning))
+
+            if not tool_slots:
+                logger.info("chat step %d: final answer, no tool calls (%dch)", step, len(content))
+                yield ("final", content)
+                return
+
+            # The model wants to call tools; any content here is its narrative "thinking".
+            if content:
+                logger.info("chat step %d THINKING (content): %s", step, _short(content))
+            ordered = [tool_slots[i] for i in sorted(tool_slots)]
             messages.append({
-                "role": "assistant", "content": choice.content,
-                "tool_calls": [{"id": tc.id, "type": "function",
-                                "function": {"name": tc.function.name,
-                                             "arguments": tc.function.arguments}}
-                               for tc in choice.tool_calls],
+                "role": "assistant", "content": content or None,
+                "tool_calls": [{"id": t["id"], "type": "function",
+                                "function": {"name": t["name"], "arguments": t["args"]}}
+                               for t in ordered],
             })
-            for tc in choice.tool_calls:
+            for t in ordered:
                 try:
-                    args = json.loads(tc.function.arguments or "{}")
+                    args = json.loads(t["args"] or "{}")
                 except json.JSONDecodeError:
                     args = {}
-                logger.info("  TOOL CALL %s(%s) by user=%s",
-                            tc.function.name, _short(json.dumps(args, ensure_ascii=False), 300),
-                            user.username)
-                result = self._dispatch(user, tc.function.name, args)
-                logger.info("  TOOL RESULT %s -> %s", tc.function.name,
+                logger.info("  TOOL CALL step=%d name=%s args=%s by user=%s",
+                            step, t["name"],
+                            _short(json.dumps(args, ensure_ascii=False), 300), user.username)
+                yield ("tool_call", {"name": t["name"], "arguments": args})
+                result = self._dispatch(user, t["name"], args)
+                logger.info("  TOOL RESULT name=%s -> %s", t["name"],
                             _short(json.dumps(result, ensure_ascii=False, default=str), 600))
-                messages.append({"role": "tool", "tool_call_id": tc.id,
+                yield ("tool_result", {"name": t["name"], "result": result})
+                messages.append({"role": "tool", "tool_call_id": t["id"],
                                  "content": json.dumps(result, ensure_ascii=False, default=str)})
         logger.warning("chat hit MAX_TOOL_STEPS=%d without a final answer", MAX_TOOL_STEPS)
-        return "I wasn't able to complete that request in a reasonable number of steps."
+        yield ("final", "I wasn't able to complete that request in a reasonable number of steps.")
 
     def _map_error(self, e: Exception, model, provider, session_id) -> AIResponse:
         name = type(e).__name__

@@ -20,6 +20,7 @@ Run (single worker — see conversation_store.py):
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -28,14 +29,14 @@ import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from app import config
 from app.ai.api_auth import JWTConfig, create_access_token, is_admin, make_auth_deps
 from app.ai.chat_agent import ChatAgent
 from app.ai.conversation_store import ChatStore
-from app.ai.models import ChatMessage
+from app.ai.models import AIResponse, ChatMessage
 from app.ai.provider_config import ProviderConfig
 from app.ai.watcher_context_service import WatcherContextService
 from app.services.auth import CurrentUser
@@ -125,9 +126,13 @@ class ChatBody(BaseModel):
         True, description="Inject the latest watcher result into the prompt.")
     max_context_chars: int | None = Field(
         None, description="Override the max characters of watcher context to inject.")
+    stream: bool = Field(
+        False, description="Stream the reply as Server-Sent Events (text/event-stream) — "
+                           "each event is a JSON object with a 'type' (meta/thinking/delta/"
+                           "tool_call/tool_result/done/error). Leave false for a single JSON reply.")
     model_config = {"json_schema_extra": {"example": {
         "message": "What is the latest watcher result?",
-        "include_latest_watcher_context": True}}}
+        "include_latest_watcher_context": True, "stream": False}}}
 
     @field_validator("session_id")
     @classmethod
@@ -555,6 +560,11 @@ def create_app(app_config: dict | None = None) -> FastAPI:
             raise HTTPException(403, detail={"status": "error", "error_code": "FORBIDDEN",
                                              "message": "You don't have permission to access action."})
         history = chat_store.recent(session_id)
+        if body.stream:
+            return StreamingResponse(
+                _chat_sse(user, body, session_id, history),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
         result = agent.chat(
             user, body.message, session_id, history,
             include_context=body.include_latest_watcher_context,
@@ -563,6 +573,57 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         # Persist the turn (user + assistant + metadata) in one transaction.
         chat_store.record(session_id, user.id, body.message, result)
         return result.to_public_dict()
+
+    def _chat_sse(user: CurrentUser, body: ChatBody, session_id: str, history):
+        """Server-Sent Events generator: streams the assistant turn token-by-token and
+        persists the full reply when the stream ends. Each event is `data: {json}\\n\\n`."""
+        def evt(obj: dict) -> str:
+            return "data: " + json.dumps(obj, ensure_ascii=False, default=str) + "\n\n"
+
+        started = time.perf_counter()
+        parts: list[str] = []
+        final_text = ""
+        meta = {"model": "", "provider": "", "execution_context_used": False}
+        yield evt({"type": "session", "session_id": session_id})
+        try:
+            for kind, payload in agent.chat_stream(
+                    user, body.message, session_id, history,
+                    include_context=body.include_latest_watcher_context,
+                    max_context_chars=body.max_context_chars):
+                if kind == "meta":
+                    meta = payload
+                    yield evt({"type": "meta", "session_id": session_id, **payload})
+                elif kind == "thinking":
+                    yield evt({"type": "thinking", "text": payload})
+                elif kind == "delta":
+                    parts.append(payload)
+                    yield evt({"type": "delta", "text": payload})
+                elif kind == "tool_call":
+                    yield evt({"type": "tool_call", "name": payload["name"],
+                               "arguments": payload["arguments"]})
+                elif kind == "tool_result":
+                    yield evt({"type": "tool_result", "name": payload["name"],
+                               "result": payload["result"]})
+                elif kind == "error":
+                    yield evt({"type": "error", **payload})
+                elif kind == "final":
+                    final_text = payload
+        finally:
+            reply = (final_text or "".join(parts)).strip()
+            latency = int((time.perf_counter() - started) * 1000)
+            # Persist the streamed turn (best-effort; a store error must not break the stream).
+            try:
+                res = AIResponse.success(
+                    reply, model=meta.get("model", ""), provider=meta.get("provider", ""),
+                    session_id=session_id, latency_ms=latency,
+                    execution_context_used=meta.get("execution_context_used", False))
+                chat_store.record(session_id, user.id, body.message, res)
+            except Exception:
+                logger.exception("streamed chat: failed to persist turn")
+            yield evt({"type": "done", "session_id": session_id, "reply": reply,
+                       "latency_ms": latency, "model": meta.get("model", ""),
+                       "provider": meta.get("provider", "")})
+            yield "data: [DONE]\n\n"
 
     @app.get("/api/chat/provider", tags=["ai-chat"])
     def chat_provider(_user: CurrentUser = Depends(get_current_user)) -> dict:
