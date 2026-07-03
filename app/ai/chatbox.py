@@ -18,7 +18,7 @@ import uuid
 import requests
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
-REQUEST_TIMEOUT = 90
+REQUEST_TIMEOUT = 180        # spec §12.2/§14: AI turns may take up to 120-180s
 
 
 def _friendly_error(exc: Exception) -> str:
@@ -46,13 +46,18 @@ def login(base_url: str, username: str, password: str) -> str:
 
 
 def send_message(base_url: str, session_id: str, message: str,
-                 token: str | None = None) -> str:
-    """POST /api/chat and return a display string (reply or a friendly error)."""
+                 token: str | None = None, include_context: bool = True) -> str:
+    """POST /api/chat and return a display string (reply or a friendly error).
+
+    include_context (spec §12.2 `include_latest_watcher_context`, default True):
+    ask the server to inject the latest watcher result into the AI prompt.
+    """
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         resp = requests.post(
             f"{base_url.rstrip('/')}/api/chat",
-            json={"message": message, "session_id": session_id},
+            json={"message": message, "session_id": session_id,
+                  "include_latest_watcher_context": include_context},
             headers=headers,
             timeout=REQUEST_TIMEOUT,
         )
@@ -78,7 +83,9 @@ def launch_chatbox(base_url: str = DEFAULT_BASE_URL, session_id: str | None = No
 
     Auth: pass an existing `token`, OR `username`/`password` to log in automatically.
     """
-    session_id = session_id or f"nb-{uuid.uuid4().hex[:8]}"
+    # Must be a real UUID: the server validates session_id and starts a new
+    # conversation for a UUID it has not seen yet.
+    session_id = session_id or str(uuid.uuid4())
 
     if token is None and username and password:
         try:
@@ -100,6 +107,8 @@ def launch_chatbox(base_url: str = DEFAULT_BASE_URL, session_id: str | None = No
     history = widgets.HTML(value="<i>Ask something about the latest watcher result…</i>")
     box = widgets.Text(placeholder="Type a message and press Enter / Send")
     send_btn = widgets.Button(description="Send", button_style="primary")
+    ctx_toggle = widgets.Checkbox(value=True, indent=False,
+                                  description="Include latest watcher context")
     log: list[str] = []
 
     def _on_send(_=None):
@@ -109,13 +118,14 @@ def launch_chatbox(base_url: str = DEFAULT_BASE_URL, session_id: str | None = No
         box.value = ""
         log.append(f"<b>You:</b> {text}")
         history.value = "<br>".join(log) + "<br><i>…thinking…</i>"
-        reply = send_message(base_url, session_id, text, token)
+        reply = send_message(base_url, session_id, text, token,
+                             include_context=ctx_toggle.value)
         log.append(f"<b>AI:</b> {reply}")
         history.value = "<br>".join(log)
 
     send_btn.on_click(_on_send)
     box.on_submit(_on_send)  # Enter key
-    display(widgets.VBox([history, widgets.HBox([box, send_btn])]))
+    display(widgets.VBox([history, widgets.HBox([box, send_btn]), ctx_toggle]))
 
 
 def _repl_fallback(base_url: str, session_id: str, token: str | None = None) -> None:

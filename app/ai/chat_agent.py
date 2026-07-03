@@ -23,6 +23,7 @@ import time
 from app.ai.api_auth import is_admin
 from app.ai.models import (AIResponse, CONFIG_ERROR, PROVIDER_ERROR, RATE_LIMITED,
                            TIMEOUT, ChatMessage)
+from app.ai.opencode_adapter import OpenCodeAdapter, compose_prompt
 from app.ai.provider_config import ProviderConfig
 from app.ai.watcher_context_service import WatcherContextService
 from app.services.auth import CurrentUser, hash_password
@@ -126,6 +127,7 @@ class ChatAgent:
         self.repo = repo
         self.ctx = context_service
         self.capture_fn = capture_fn
+        self.opencode = OpenCodeAdapter(provider)   # engine "opencode" (spec §11)
         self._roles = {r["id"]: r["name"] for r in repo.list_roles()}
 
     # ---------- public API ----------
@@ -151,6 +153,18 @@ class ChatAgent:
                 "Set ai.mock=false and configure the provider API key in .env to enable it.",
                 model=model, provider=provider, session_id=session_id,
                 execution_context_used=ctx_used, latency_ms=0)
+
+        # Engine "opencode" (spec §11): one-shot prompt through the OpenCode CLI.
+        # No DB tools on this path; the CLI manages its own provider keys, so the
+        # snap.usable() key check below does not apply.
+        if self.cfg.resolve_engine() == "opencode":
+            prompt = compose_prompt(message, ctx_block, history)
+            logger.info("chat START user=%s role=%s session=%s engine=opencode "
+                        "provider=%s ctx_used=%s",
+                        user.username, user.role_name, session_id, provider, ctx_used)
+            logger.info("chat USER message: %s", _short(message))
+            return self.opencode.run(prompt, snap, session_id=session_id,
+                                     ctx_used=ctx_used)
 
         if not snap.usable():
             return AIResponse.failure(

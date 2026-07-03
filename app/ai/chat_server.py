@@ -568,7 +568,8 @@ def create_app(app_config: dict | None = None) -> FastAPI:
     def chat_provider(_user: CurrentUser = Depends(get_current_user)) -> dict:
         """The chat LLM provider + model currently selected (resolved live from .env)."""
         snap = provider.resolve()
-        return {"provider": snap.provider, "model": snap.model, "mock": provider.mock,
+        return {"engine": provider.resolve_engine(), "provider": snap.provider,
+                "model": snap.model, "mock": provider.mock,
                 "key_configured": snap.usable()}
 
     @app.post("/api/chat/sessions", status_code=201, tags=["ai-chat"])
