@@ -44,6 +44,19 @@ class ChatStore:
         return [ChatMessage(r["role"], r["content"], error_code=r["error_code"] or OK)
                 for r in reversed(rows)]
 
+    def list_sessions(self, user_id: str):
+        """The caller's own sessions (most recently updated first)."""
+        return self.repo.list_chat_sessions(user_id)
+
+    def list_all_sessions(self):
+        """Every user's sessions (admin history view; each row carries owner_username)."""
+        return self.repo.list_all_chat_sessions()
+
+    def transcript(self, session_id: str) -> list[ChatMessage]:
+        """The full conversation (chronological) for reloading a session into the UI."""
+        return [ChatMessage(r["role"], r["content"], error_code=r["error_code"] or OK)
+                for r in self.repo.list_chat_messages(session_id)]
+
     def record(self, session_id: str, user_id: str, user_text: str, result) -> None:
         """Persist one user+assistant turn with assistant metadata."""
         meta = {"model": result.model, "provider": result.provider,

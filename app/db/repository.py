@@ -299,6 +299,14 @@ class Repository:
             "SELECT * FROM chat_sessions WHERE user_id = ? AND deleted_at IS NULL "
             "ORDER BY updated_at DESC", (user_id,))
 
+    def list_all_chat_sessions(self) -> list[sqlite3.Row]:
+        """Every user's chat sessions with the owner's username (admin history view).
+        Admins may READ any session but only continue their own — see ChatStore."""
+        return self._query(
+            "SELECT s.*, u.username AS owner_username FROM chat_sessions s "
+            "JOIN users u ON u.id = s.user_id "
+            "WHERE s.deleted_at IS NULL ORDER BY s.updated_at DESC")
+
     def list_chat_messages(self, session_id: str, limit: int | None = None,
                            newest_first: bool = False) -> list[sqlite3.Row]:
         order = "DESC" if newest_first else "ASC"

@@ -27,6 +27,10 @@ class ApiServerTab(ttk.Frame):
         self.proc: subprocess.Popen | None = None
         self._build()
         atexit.register(self._kill)          # never leave the server running after exit
+        # Auto-start together with the app: the user never has to press Start.
+        # After a manual Stop (or a crash) the Start button re-enables so they can
+        # restart it — see _refresh_state(). Deferred so the UI is realized first.
+        self.after(400, self._autostart)
         self._poll()
 
     # ---------- UI ----------
@@ -35,7 +39,9 @@ class ApiServerTab(ttk.Frame):
                   font=("Segoe UI", 13, "bold")).pack(anchor="w")
         ttk.Label(
             self,
-            text="Start the FastAPI server to use the REST API (JWT auth, AI chat, watcher). "
+            text="The FastAPI server (REST API: JWT auth, AI chat, watcher) starts "
+                 "automatically with the app — no need to press Start. Use Stop to shut it "
+                 "down; Start becomes available again to bring it back up. "
                  "Runs a single worker and shares this app's database.",
             foreground="#666", wraplength=760, justify="left",
         ).pack(anchor="w", pady=(2, 12))
@@ -76,7 +82,12 @@ class ApiServerTab(ttk.Frame):
     def _base_url(self) -> str:
         return f"http://{self.host_var.get().strip()}:{self.port_var.get().strip()}"
 
-    def _start(self) -> None:
+    def _autostart(self) -> None:
+        """Bring the server up on app launch (best-effort; user can retry via Start)."""
+        if not self._running():
+            self._start(auto=True)
+
+    def _start(self, auto: bool = False) -> None:
         if self.proc and self.proc.poll() is None:
             return
         port = self.port_var.get().strip()
@@ -96,7 +107,8 @@ class ApiServerTab(ttk.Frame):
         except Exception as e:
             self.status.config(text=f"✗  Failed to start: {e}", foreground="#a00")
             return
-        self.ctx.repo.add_audit(self.ctx.current_user.id, "api.start", self._base_url())
+        self.ctx.repo.add_audit(self.ctx.current_user.id,
+                                "api.autostart" if auto else "api.start", self._base_url())
         self._refresh_state()
 
     def _stop(self) -> None:

@@ -375,8 +375,8 @@ python run.py
 5. Tab **📧 Sent Emails**: danh sách email đã gửi/mô phỏng/thất bại → chọn 1 dòng để xem
    toàn bộ nội dung (tiêu đề, người nhận, lý do, body), hoặc bấm **✉ Resend**.
 6. Tab **👥 User Management** (admin).
-7. Tab **🚀 API Server** (admin): bật/tắt server REST API ngay trong app (nút *Start/Stop*), mở nhanh Swagger `/docs`. Server chạy tiến trình riêng, tự tắt khi thoát app.
-8. Tab **💬 Chatbot** (mọi user): trò chuyện với trợ lý AI ngay trong app. AI gọi tool truy vấn/thao tác DB **theo đúng quyền của bạn** (vd chỉ admin mới tạo/xóa user qua chat). Có nút **🆕 New chat** (bắt đầu phiên mới) và **hiển thị provider/model đang dùng** ở góc phải. Provider/model chọn ở `.chatbot.env`.
+7. Tab **🚀 API Server** (admin): server REST API **tự khởi động cùng app** — không cần bấm Start. Bấm **■ Stop** để tắt; khi đã tắt nút **▶ Start** mới bật trở lại để chạy lại. Mở nhanh Swagger `/docs`. Server chạy tiến trình riêng, tự tắt khi thoát app.
+8. Tab **💬 Chatbot** (mọi user): trò chuyện với trợ lý AI ngay trong app. AI gọi tool truy vấn/thao tác DB **theo đúng quyền của bạn** (vd chỉ admin mới tạo/xóa user qua chat). Panel **Chat history** bên trái liệt kê các phiên đã lưu để **chọn và tiếp tục chat**; riêng **admin** thấy phiên của **mọi user** (kèm cột User) nhưng chỉ **tiếp tục được phiên của chính mình** — phiên của người khác mở ở chế độ **chỉ đọc** 🔒. Có nút **🆕 New chat** (bắt đầu phiên mới) và **hiển thị provider/model đang dùng** ở góc phải. Provider/model chọn ở `.chatbot.env`.
 
 ### Demo chat AI có kiểm soát
 
@@ -427,7 +427,7 @@ quản lý user, chatbot hỏi–đáp và điều khiển/tra cứu watcher. Ch
 desktop (đọc kết quả read-only; login/tạo–xóa/quản lý user ghi qua một connection riêng).
 
 **Chạy server** — 2 cách:
-- Trong app desktop: mở tab **🚀 API Server** → bấm **Start** (khuyến nghị, không cần dòng lệnh).
+- Trong app desktop: server **tự khởi động cùng app** khi admin đăng nhập (tab **🚀 API Server**); chỉ bấm **▶ Start** khi trước đó đã **■ Stop**.
 - Hoặc dòng lệnh (bắt buộc 1 worker vì conversation store in-memory):
 
 ```powershell
