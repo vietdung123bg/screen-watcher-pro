@@ -89,11 +89,13 @@ Hỏi:
 cách nấu thịt kho tàu thế nào?
 ```
 
-Kỳ vọng bắt buộc:
+Kỳ vọng bắt buộc (câu từ chối luôn bằng **tiếng Anh**):
 
 ```text
-Câu hỏi này nằm ngoài phạm vi hỗ trợ của Tool Watcher Assistant. Vui lòng hỏi về kết quả giám sát, OCR, rule hoặc trạng thái hệ thống.
+This question is outside the scope of the Tool Watcher Assistant. Please ask about watcher results, OCR, rules, or system status.
 ```
+
+> Lưu ý: chào hỏi và hỗ trợ cơ bản về app (vd `Chào bạn`, `Bạn giúp được gì?`) **vẫn được trả lời** — chỉ chủ đề hoàn toàn ngoài nghiệp vụ (nấu ăn, sửa xe máy, thể thao…) mới bị từ chối bằng câu trên.
 
 Ý nghĩa demo:
 

@@ -56,9 +56,10 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 # stateless from our point of view — we keep the session history ourselves).
 MAX_HISTORY_TURNS = 6
 
+# Refusal is ALWAYS in English, even when the user writes in Vietnamese.
 OUT_OF_SCOPE_REPLY = (
-    "Câu hỏi này nằm ngoài phạm vi hỗ trợ của Tool Watcher Assistant. "
-    "Vui lòng hỏi về kết quả giám sát, OCR, rule hoặc trạng thái hệ thống."
+    "This question is outside the scope of the Tool Watcher Assistant. "
+    "Please ask about watcher results, OCR, rules, or system status."
 )
 
 PROMPT_TEMPLATE = """System role:
@@ -71,10 +72,16 @@ User question:
 {message}
 
 Instruction:
-Trả lời ngắn gọn, dựa trên dữ liệu được cung cấp.
+Trả lời ngắn gọn, dựa trên dữ liệu được cung cấp; trả lời bằng đúng ngôn ngữ người dùng dùng.
 Nếu dữ liệu không đủ, nói rõ là chưa đủ dữ liệu.
-Chỉ trả lời câu hỏi liên quan vận hành Tool Watcher (kết quả giám sát, OCR, rule, email, hệ thống).
-Nếu câu hỏi ngoài phạm vi đó (ví dụ nấu ăn, thể thao, kiến thức chung), trả lời đúng một câu: "{out_of_scope}"
+Phạm vi hỗ trợ GỒM: chào hỏi, cảm ơn, hỏi "bạn là ai" / "bạn giúp được gì", và mọi thứ về app
+Tool Watcher (kết quả giám sát, OCR, rule, email, execution, tài khoản, trạng thái hệ thống,
+cách dùng app). Với các câu này hãy trả lời thân thiện và hữu ích; nếu là lời chào thì chào lại
+và giới thiệu ngắn gọn bạn giúp được gì.
+CHỈ khi câu hỏi hoàn toàn không liên quan tới app hoặc là kiến thức chung (ví dụ: hướng dẫn sửa
+xe máy, nấu cơm/nấu ăn, thể thao, thời tiết, làm thơ), trả lời đúng một câu bằng TIẾNG ANH và
+không nói gì thêm: "{out_of_scope}"
+Khi phân vân (lời chào hoặc câu hỏi mơ hồ về app), coi như TRONG phạm vi và hãy hỗ trợ.
 """
 
 

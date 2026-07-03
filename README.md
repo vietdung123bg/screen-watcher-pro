@@ -384,10 +384,11 @@ Sau khi đã có ít nhất 1 kết quả watcher mới (Capture & OCR hoặc `G
 
 | Câu hỏi | Kỳ vọng |
 |--------|---------|
+| `Chào bạn` / `Bạn giúp được gì?` | Assistant chào lại thân thiện và giới thiệu ngắn gọn nó hỗ trợ gì (kết quả watcher, OCR, rule, trạng thái…). Chào hỏi & hỗ trợ cơ bản về app **luôn trong phạm vi**. |
 | `Issue hiện tại đang là gì?` | Assistant đánh giá hiện trạng vận hành dựa trên watcher context mới nhất: OCR, rule match, severity, email/cooldown. Nếu chưa có dữ liệu, assistant nói rõ chưa đủ dữ liệu. |
-| `cách nấu thịt kho tàu thế nào?` | Assistant từ chối vì ngoài phạm vi Tool Watcher. Phản hồi bắt buộc: `Câu hỏi này nằm ngoài phạm vi hỗ trợ của Tool Watcher Assistant. Vui lòng hỏi về kết quả giám sát, OCR, rule hoặc trạng thái hệ thống.` |
+| `Hướng dẫn tôi sửa xe máy` / `cách nấu thịt kho tàu thế nào?` | Chủ đề **hoàn toàn không liên quan app** → Assistant từ chối bằng đúng một câu **tiếng Anh**: `This question is outside the scope of the Tool Watcher Assistant. Please ask about watcher results, OCR, rules, or system status.` |
 
-Case 1 chứng minh trợ lý không chỉ chat chung chung mà có thể đọc hiện trạng vận hành. Case 2 chứng minh AI assistance được kiểm soát phạm vi, không trả lời nội dung ngoài nghiệp vụ.
+Case chào hỏi cho thấy trợ lý vẫn thân thiện, hỗ trợ cơ bản. Case "Issue hiện tại" chứng minh trợ lý đọc được hiện trạng vận hành. Case sửa xe/nấu ăn chứng minh AI được kiểm soát phạm vi — chỉ từ chối chủ đề ngoài nghiệp vụ, và câu từ chối luôn bằng tiếng Anh.
 
 ### Demo cooldown nhanh
 Mở một trang có chữ `ERROR` hoặc `Daily Sync Failed`, chụp Chrome **2 lần liên tiếp**:
