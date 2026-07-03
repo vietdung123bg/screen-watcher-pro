@@ -12,6 +12,7 @@ from app.ui.capture_tab import CaptureTab
 from app.ui.chatbot_tab import ChatbotTab
 from app.ui.emails_tab import EmailsTab
 from app.ui.history_tab import HistoryTab
+from app.ui.jupyter_tab import JupyterTab
 from app.ui.rules_tab import RulesTab
 from app.ui.users_tab import UsersTab
 
@@ -73,6 +74,10 @@ class MainWindow:
         # API server control (admin only — starts the REST API for external clients)
         if user.can("user.manage"):
             nb.add(ApiServerTab(nb, self.ctx), text="  🚀  API Server  ")
+
+        # Jupyter notebook chatbox client (admin only — launches a local Jupyter server)
+        if user.can("user.manage"):
+            nb.add(JupyterTab(nb, self.ctx), text="  📓  Jupyter  ")
 
         # If no tab (no permissions) show a notice
         if not nb.tabs():

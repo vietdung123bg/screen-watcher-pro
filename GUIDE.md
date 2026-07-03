@@ -25,6 +25,7 @@ người dùng).
 11. [Luồng quyết định gửi email & Cooldown](#11-luồng-quyết-định-gửi-email--cooldown)
 12. [Xử lý sự cố nhanh](#12-xử-lý-sự-cố-nhanh)
 13. [Tab 🚀 API Server — mở REST API](#13-tab--api-server--mở-rest-api)
+13a. [Tab 📓 Jupyter — mở notebook chatbox](#13a-tab--jupyter--mở-notebook-chatbox)
 14. [REST API (cho client ngoài)](#14-rest-api-cho-client-ngoài)
 
 ---
@@ -148,6 +149,7 @@ Sau khi đăng nhập là **cửa sổ chính**:
 | **📧 Sent Emails** | `rule.view` | Danh sách email đã gửi/mô phỏng/thất bại + gửi lại |
 | **👥 User Management** | `user.manage` | Quản lý người dùng (chỉ admin) |
 | **🚀 API Server** | `user.manage` | Bật/tắt REST API server ngay trong app (chỉ admin) |
+| **📓 Jupyter** | `user.manage` | Khởi động Jupyter server mở `chatbox.ipynb` (chỉ admin) |
 | **💬 Chatbot** | mọi user đăng nhập | Trò chuyện với trợ lý AI; AI gọi tool DB theo đúng quyền của bạn |
 
 Ví dụ: `admin` thấy đủ tab; `operator`/`viewer` thấy các tab theo quyền + **Chatbot**
@@ -458,6 +460,25 @@ Ghi chú:
 - Nếu cổng đang bận (auto-start thất bại) trạng thái về **○ Stopped** và nút Start bật lại để thử lại.
 - Đọc/ghi **cùng `data/screenwatcher.db`** với app (mở connection riêng) — chạy song song được.
 - Log server ghi vào `logs/api_server.log`.
+
+---
+
+## 13a. Tab 📓 Jupyter — mở notebook chatbox
+
+Chỉ hiện với **admin** (`user.manage`). Khởi động **Jupyter server** phục vụ `notebooks/chatbox.ipynb`
+— client notebook gọi REST API (server API đã tự chạy ở tab 🚀 API Server).
+
+- **Host / Port** — mặc định `127.0.0.1` / `8888`.
+- **▶ Start Jupyter** — chạy `jupyter notebook … --no-browser` trong **tiến trình con**. App **tự đọc
+  URL kèm token** từ log Jupyter; trạng thái chuyển **● Running** khi có URL.
+- **📓 Open notebook** — mở đúng `chatbox.ipynb` (kèm token) trên trình duyệt.
+- **■ Stop** — dừng Jupyter server.
+
+Ghi chú:
+- Cần cài **Jupyter** (`pip install notebook`, đã có trong `requirements.txt`). Nếu thiếu, tab báo
+  *"Jupyter is not installed — run: pip install notebook"*.
+- Tiến trình con, **tự tắt khi thoát app**. Log ghi vào `logs/jupyter.log`.
+- Trong notebook: đăng nhập `admin / admin123` rồi chạy các cell để chat qua watcher API.
 
 ---
 

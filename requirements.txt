@@ -9,6 +9,7 @@ fastapi>=0.110.0
 uvicorn>=0.27.0
 requests>=2.31.0
 ipywidgets>=8.0.0
+notebook>=7.0.0             # Jupyter notebook chatbox client (📓 Jupyter tab / run.cmd notebook)
 PyJWT>=2.8.0                # JWT auth for the watcher API
 
 # ---- Tests (`run.cmd test` → pytest) ----
