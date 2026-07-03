@@ -7,8 +7,10 @@ is authorized exactly like the REST endpoints:
 
     * Any authenticated user: view own profile / own watcher results, trigger a capture.
     * Admin only: list/soft-delete users, soft-delete executions, view any execution.
-    * Denied actions return "You don't have permission to perform this action."
+    * Denied actions return "You are a {role} and do not have permission to {thing}."
       which the model relays to the user (in English).
+    * A request that no tool can serve (e.g. change password — no such tool exists)
+      returns "I cannot perform this action because there is no tool to support it."
 
 Tools operate through the writable Repository; the LLM never touches SQL directly.
 Secrets and full prompts are never logged (only model + latency + request id).
@@ -37,16 +39,31 @@ def _short(s, n: int = 600) -> str:
 
 
 MAX_TOOL_STEPS = 6
-_DENY = {"error": "You don't have permission to perform this action."}
+
+# Returned when the user asks for something that NO tool implements (feature not built).
+NO_TOOL_MESSAGE = "I cannot perform this action because there is no tool to support it."
+
+
+def _deny(user: CurrentUser, thing: str) -> dict:
+    """Permission-denied result naming the caller's role and the blocked action.
+
+    The model is instructed to relay this text verbatim, e.g.
+    "You are a viewer and do not have permission to delete a user account."
+    """
+    return {"error": f"You are a {user.role_name} and do not have permission to {thing}."}
+
 
 SYSTEM_PROMPT = (
     "You are the assistant of Screen Watcher Pro, a desktop app that captures browser "
     "windows, runs OCR, evaluates alert rules and sends emails. Answer concisely in English.\n"
     "Use the provided tools to look up or act on data (watcher results, executions, user "
     "accounts) whenever the question needs live data — do not invent values.\n"
-    "Authorization is enforced by the tools themselves: if a tool returns an 'error' saying "
-    "permission is denied, tell the user plainly that they don't have permission — never claim "
-    "you performed the action. If the answer is not in the data, say so."
+    "Authorization is enforced by the tools themselves: if a tool returns an 'error' message, "
+    "relay that exact message to the user verbatim and never claim you performed the action.\n"
+    "If the user asks for an action that NONE of the available tools can perform (for example "
+    "changing a password — there is no such tool), do not attempt any tool: reply with exactly "
+    f"\"{NO_TOOL_MESSAGE}\"\n"
+    "If the answer is not in the data, say so."
 )
 
 # ---- OpenAI-style tool schemas (permission is enforced at execution, not here) ----
@@ -249,7 +266,7 @@ class ChatAgent:
     def _dispatch(self, user: CurrentUser, name: str, args: dict) -> dict:
         handler = getattr(self, f"_t_{name}", None)
         if handler is None:
-            return {"error": f"Unknown tool '{name}'."}
+            return {"error": NO_TOOL_MESSAGE}
         try:
             return handler(user, **args)
         except TypeError as e:
@@ -280,7 +297,7 @@ class ChatAgent:
         if not wc.has_data:
             return {"error": "No execution with that id."}
         if not is_admin(user) and wc.owner_id != user.id:
-            return dict(_DENY)
+            return _deny(user, "view another user's execution")
         return wc.to_dict(include_audit=True)
 
     def _t_trigger_capture(self, user, targets=None, launch=False, **_):
@@ -291,7 +308,7 @@ class ChatAgent:
 
     def _t_delete_execution(self, user, execution_id=None, **_):
         if not is_admin(user):
-            return dict(_DENY)
+            return _deny(user, "delete a watcher execution")
         if not execution_id:
             return {"error": "execution_id is required."}
         n = self.repo.soft_delete_screenshot(execution_id)
@@ -302,12 +319,12 @@ class ChatAgent:
 
     def _t_list_users(self, user, **_):
         if not is_admin(user):
-            return dict(_DENY)
+            return _deny(user, "list user accounts")
         return {"users": [self._user_public(r) for r in self.repo.list_users()]}
 
     def _t_get_user(self, user, username=None, **_):
         if not is_admin(user):
-            return dict(_DENY)
+            return _deny(user, "view user account details")
         row = self.repo.get_user_by_username((username or "").strip())
         return self._user_public(row) if row else {"error": f"No user '{username}'."}
 
@@ -315,7 +332,7 @@ class ChatAgent:
                        full_name=None, email=None, first_name=None, last_name=None,
                        phone=None, **_):
         if not is_admin(user):
-            return dict(_DENY)
+            return _deny(user, "create a user account")
         username = (username or "").strip()
         if len(username) < 3:
             return {"error": "Username must be at least 3 characters."}
@@ -337,7 +354,7 @@ class ChatAgent:
 
     def _t_delete_user(self, user, username=None, **_):
         if not is_admin(user):
-            return dict(_DENY)
+            return _deny(user, "delete a user account")
         row = self.repo.get_user_by_username((username or "").strip())
         deleted = row is not None and "deleted_at" in row.keys() and row["deleted_at"]
         if row is None or deleted:

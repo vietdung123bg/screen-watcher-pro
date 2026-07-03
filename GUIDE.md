@@ -467,7 +467,10 @@ Có cho **mọi tài khoản đăng nhập**. Chat trực tiếp trong app với
   *"delete user bob"*) → **Send**.
 - AI trả lời và **gọi tool truy vấn/thao tác DB theo đúng quyền của bạn**: user thường chỉ xem dữ
   liệu của mình; admin mới **tạo/liệt kê/xóa user, xóa execution**. Vượt quyền → AI báo
-  *"You don't have permission to perform this action."*
+  *"You are a {role} and do not have permission to {thing}."* (vd *"You are a viewer and do not have
+  permission to delete a user account."*).
+- Nhờ làm việc mà **chưa có tool nào hỗ trợ** (vd đổi mật khẩu — chưa add tool) → AI báo
+  *"I cannot perform this action because there is no tool to support it."*
 - **🆕 New chat** (góc trên) — bắt đầu phiên hội thoại mới.
 - **Hiển thị provider + model đang dùng** ở góc phải header (vd *"Provider: openrouter · Model: openai/gpt-4o-mini"*), cập nhật khi bấm New chat.
 - LLM chạy **nền** nên UI không treo. Provider/model chọn ở `.chatbot.env` (xem §14.0).
@@ -519,8 +522,9 @@ Secret ký token lấy từ `.chatbot.env` (`WATCHER_JWT_SECRET`); thời hạn 
 ### 14.2b. Bảng tool của chatbot & quyền
 
 Trợ lý AI gọi các **tool** để truy vấn/thao tác DB, mỗi tool **tự kiểm quyền theo người hỏi**
-(định nghĩa trong `app/ai/chat_agent.py`). Tool bị chặn → chatbot trả *"You don't have permission
-to perform this action."* ("admin" = role `admin` hoặc có quyền `user.manage`):
+(định nghĩa trong `app/ai/chat_agent.py`). Tool bị chặn do sai quyền → chatbot trả *"You are a {role}
+and do not have permission to {thing}."*; nhờ việc chưa có tool hỗ trợ → *"I cannot perform this action
+because there is no tool to support it."* ("admin" = role `admin` hoặc có quyền `user.manage`):
 
 | Tool | Mục đích | Tham số | User | Admin | Endpoint tương ứng |
 |------|----------|---------|:--:|:--:|----------|

@@ -422,10 +422,14 @@ Xem provider/model đang dùng: **`GET /api/chat/provider`** (hoặc nhãn trên
 **Công cụ (tools) của chatbot** — LLM gọi tool để truy vấn/thao tác DB **theo đúng quyền người hỏi**:
 `get_my_profile`, `get_latest_watcher_result`, `get_execution`, `trigger_capture` (mọi user); `list_users`,
 `get_user`, **`create_user`**, `delete_user`, `delete_execution` (**admin**). Ví dụ: admin nhắn *"create a user
-bob role operator"* / *"delete user bob"* → chatbot thực hiện; user thường → *"You don't have permission to
-perform this action."* Mọi lần chat + từng tool call (tên, tham số, kết quả) đều được **ghi log** (`logs/`).
+bob role operator"* / *"delete user bob"* → chatbot thực hiện; user thường → *"You are a viewer and do not
+have permission to delete a user account."* Mọi lần chat + từng tool call (tên, tham số, kết quả) đều được **ghi log** (`logs/`).
 
-Bảng tool ↔ quyền (định nghĩa trong `app/ai/chat_agent.py`; tool bị chặn → chatbot báo *"You don't have permission to perform this action."*; "admin" = role `admin` hoặc có quyền `user.manage`):
+**Hai loại thông báo từ chối** (đều bằng tiếng Anh):
+- **Sai quyền** — người dùng nhờ làm việc mà tool có nhưng role không đủ quyền → *"You are a {role} and do not have permission to {thing}."* (ví dụ user thường xóa tài khoản → *"You are a viewer and do not have permission to delete a user account."*).
+- **Chưa có tool** — nhờ làm việc mà **chưa có tool nào hỗ trợ** (ví dụ đổi mật khẩu — chưa add tool) → *"I cannot perform this action because there is no tool to support it."*
+
+Bảng tool ↔ quyền (định nghĩa trong `app/ai/chat_agent.py`; tool bị chặn do sai quyền → chatbot báo *"You are a {role} and do not have permission to {thing}."*; "admin" = role `admin` hoặc có quyền `user.manage`):
 
 | Tool | Mục đích | Tham số | User | Admin | Endpoint tương ứng |
 |------|----------|---------|:--:|:--:|----------|
