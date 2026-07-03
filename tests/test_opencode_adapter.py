@@ -44,17 +44,30 @@ def test_compose_prompt_has_all_sections():
 
 
 def test_compose_prompt_has_scope_guardrail():
-    """Scope control: the prompt must instruct the model to refuse off-topic
-    questions with the exact canned sentence (assistance được kiểm soát)."""
+    """Scope control: the prompt must refuse TRULY off-topic questions with the
+    exact canned sentence in English, while greetings / basic app help stay in
+    scope (assistance được kiểm soát nhưng vẫn thân thiện)."""
     p = compose_prompt("Cách nấu thịt kho tàu?", "ctx")
-    assert oa.OUT_OF_SCOPE_REPLY in p
-    assert "Chỉ trả lời câu hỏi liên quan vận hành Tool Watcher" in p
+    assert oa.OUT_OF_SCOPE_REPLY in p                # canned refusal is present
+    assert "TIẾNG ANH" in p                          # ...and must be answered in English
+    assert "chào hỏi" in p                            # greetings are explicitly in-scope
+    assert "không liên quan" in p                     # off-topic guardrail present
+
+
+def test_out_of_scope_reply_is_english():
+    """The refusal sentence is English in both engines and identical."""
+    from app.ai import chat_agent
+    assert oa.OUT_OF_SCOPE_REPLY == chat_agent.OUT_OF_SCOPE_REPLY
+    assert oa.OUT_OF_SCOPE_REPLY.startswith("This question is outside the scope")
 
 
 def test_sdk_system_prompt_has_scope_guardrail():
     from app.ai import chat_agent
-    assert chat_agent.OUT_OF_SCOPE_REPLY in chat_agent.SYSTEM_PROMPT
-    assert "SCOPE CONTROL" in chat_agent.SYSTEM_PROMPT
+    sp = chat_agent.SYSTEM_PROMPT
+    assert chat_agent.OUT_OF_SCOPE_REPLY in sp        # canned refusal present
+    assert "SCOPE" in sp                              # scope section present
+    assert "OUT-OF-SCOPE" in sp                       # off-topic handling described
+    assert "greet" in sp.lower()                      # greetings explicitly in-scope
 
 
 def test_compose_prompt_without_context():

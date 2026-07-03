@@ -3,6 +3,8 @@ either through the OpenCode CLI adapter or the (unchanged) SDK tool loop."""
 
 from __future__ import annotations
 
+import types
+
 import pytest
 
 from app.ai.chat_agent import ChatAgent
@@ -84,3 +86,92 @@ def test_engine_opencode_parsed():
 def test_engine_invalid_raises():
     with pytest.raises(ProviderConfigError):
         ProviderConfig.from_app_config({"ai": {"engine": "bogus"}})
+
+
+# ---------- SDK streaming path (fake OpenAI streaming client, no network) ----------
+
+def _chunk(content=None, tool_calls=None, reasoning=None):
+    delta = types.SimpleNamespace(content=content, tool_calls=tool_calls,
+                                  reasoning_content=reasoning)
+    return types.SimpleNamespace(choices=[types.SimpleNamespace(delta=delta)], usage=None)
+
+
+def _tc(index, id=None, name=None, args=None):
+    return types.SimpleNamespace(index=index, id=id,
+                                 function=types.SimpleNamespace(name=name, arguments=args))
+
+
+class _FakeStreamClient:
+    """Mimics client.chat.completions.create(stream=True) with scripted rounds."""
+
+    def __init__(self, scripts):
+        self._scripts = scripts
+        self.calls = 0
+        outer = self
+
+        class _Comp:
+            def create(self, **kw):
+                assert kw.get("stream") is True, "streaming loop must pass stream=True"
+                script = outer._scripts[outer.calls]
+                outer.calls += 1
+                return iter(script)
+
+        self.chat = types.SimpleNamespace(completions=_Comp())
+
+
+def _sdk_agent(tmp_path, monkeypatch, scripts) -> ChatAgent:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dummy")     # make snap.usable() True
+    cfg = ProviderConfig(timeout_seconds=30, max_context_chars=6000, mock=False,
+                         default_provider="openrouter", engine="sdk")
+    ctx = WatcherContextService(db_path=tmp_path / "missing.db")
+    agent = ChatAgent(cfg, FakeRepo(), ctx)
+    agent._build_client = lambda snap: _FakeStreamClient(scripts)   # bypass real openai
+    return agent
+
+
+def _two_round_scripts():
+    """Round 1: a tool call split across chunks. Round 2: the final answer tokens."""
+    return [
+        [_chunk(tool_calls=[_tc(0, id="c1", name="get_latest_watcher_result", args="")]),
+         _chunk(tool_calls=[_tc(0, args="{}")])],
+        [_chunk(reasoning="thinking… "), _chunk(content="Latest "), _chunk(content="result: none.")],
+    ]
+
+
+def test_sdk_streaming_assembles_reply_and_forwards_events(tmp_path, monkeypatch):
+    agent = _sdk_agent(tmp_path, monkeypatch, _two_round_scripts())
+    events = []
+    r = agent.chat(_user(), "latest?", session_id="s1",
+                   on_event=lambda ev: events.append(ev))
+    assert r.ok
+    assert r.reply == "Latest result: none."           # assembled from streamed tokens
+    kinds = [e[0] for e in events]
+    assert "tool_call" in kinds and "tool_result" in kinds
+    assert "thinking" in kinds                          # reasoning channel surfaced
+    assert "".join(p for k, p in events if k == "delta") == "Latest result: none."
+    assert kinds[-1] == "final"
+
+
+def test_sdk_streaming_single_round_no_tools(tmp_path, monkeypatch):
+    scripts = [[_chunk(content="hi "), _chunk(content="there")]]
+    agent = _sdk_agent(tmp_path, monkeypatch, scripts)
+    r = agent.chat(_user(), "hello", session_id="s1")
+    assert r.ok and r.reply == "hi there"
+
+
+def test_chat_stream_yields_ordered_events(tmp_path, monkeypatch):
+    agent = _sdk_agent(tmp_path, monkeypatch, _two_round_scripts())
+    evs = list(agent.chat_stream(_user(), "latest?", session_id="s2"))
+    kinds = [e[0] for e in evs]
+    assert kinds[0] == "meta"                           # metadata first
+    assert "tool_call" in kinds and "tool_result" in kinds and "delta" in kinds
+    assert [p for k, p in evs if k == "final"][-1] == "Latest result: none."
+
+
+def test_mock_chat_stream_emits_final(tmp_path, monkeypatch):
+    """Mock mode still yields a usable stream (one delta + final) for SSE clients."""
+    agent = _agent(tmp_path, engine="sdk", mock=True)
+    evs = list(agent.chat_stream(_user(), "hi", session_id="s1"))
+    kinds = [e[0] for e in evs]
+    assert kinds[0] == "meta" and kinds[-1] == "final"
+    assert "[MOCK mode]" in [p for k, p in evs if k == "final"][-1]
