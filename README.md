@@ -20,9 +20,7 @@ bằng chứng kiểm tra).
 > 📘 **Hướng dẫn sử dụng giao diện chi tiết** (giới thiệu từng tab, chức năng Chụp/OCR,
 > quản lý người dùng, email, history, cách sửa config): xem [GUIDE.md](GUIDE.md).
 >
-> 🖼️ **Ảnh minh hoạ từng bước** (mỗi chức năng: trước khi chạy → đang chạy → kết quả):
-> xem [GUIDE.md §15](GUIDE.md#15-ảnh-minh-hoạ-các-bước-screenshots) và shot-list
-> [docs/screenshots/README.md](docs/screenshots/README.md) (ảnh hiện là placeholder, thay bằng ảnh chụp thật).
+> 🧪 **Kiểm thử (test) & kết quả**: xem [TESTING.md](TESTING.md).
 
 ---
 

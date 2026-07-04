@@ -124,26 +124,10 @@ Luồng API tối thiểu:
 3. `POST /api/chat` với câu `Issue hiện tại đang là gì?`.
 4. `POST /api/chat` với câu `cách nấu thịt kho tàu thế nào?`.
 
-## 5. Evidence và slide
+## 5. Evidence khi demo
 
-Evidence có sẵn nằm ở:
-
-```text
-docs-bo-sung-chuc-nang/evidence/
-```
-
-Các ảnh nên dùng khi trình bày:
-
-- `01_swagger_docs.png`: API docs.
-- `02_health.png`: health check.
-- `04_notebook_chatbox.png`: Jupyter chatbox.
-- `06_notebook_latest.png`: latest watcher result.
-
-Deck workshop bản cập nhật:
-
-```text
-docs-bo-sung-chuc-nang/AI08Workshop_ver.pptx
-```
+Tự chụp màn hình các bước khi trình bày (Swagger `/docs`, health check, Jupyter chatbox,
+latest watcher result…). Kết quả **kiểm thử tự động** (pytest) xem ở [TESTING.md](TESTING.md).
 
 ## 6. Troubleshooting nhanh
 

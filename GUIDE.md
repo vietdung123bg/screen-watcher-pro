@@ -28,7 +28,6 @@ người dùng).
 13. [Tab 🚀 API Server — mở REST API](#13-tab--api-server--mở-rest-api)
 13a. [Tab 📓 Jupyter — mở notebook chatbox](#13a-tab--jupyter--mở-notebook-chatbox)
 14. [REST API (cho client ngoài)](#14-rest-api-cho-client-ngoài)
-15. [Ảnh minh hoạ các bước (Screenshots)](#15-ảnh-minh-hoạ-các-bước-screenshots)
 
 ---
 
@@ -677,42 +676,3 @@ launch_chatbox("http://127.0.0.1:8000", username="admin", password="admin123")
 ```
 Lỗi validate trả **422** với JSON nêu rõ field sai; lỗi/mã trạng thái khác xem
 [README.md mục 7.1](README.md).
-
----
-
-## 15. Ảnh minh hoạ các bước (Screenshots)
-
-> Các ảnh dưới đây hiện là **PLACEHOLDER**. Cách chụp thật + shot-list chi tiết:
-> [docs/screenshots/README.md](docs/screenshots/README.md). Chụp xong **ghi đè đúng tên file**
-> trong `docs/screenshots/` là ảnh tự hiển thị ở đây.
-
-### 15.1. Đăng nhập
-![Sign in](docs/screenshots/01_signin.png)
-
-### 15.2. Capture & OCR (trước → đang chạy → kết quả)
-![Capture — before](docs/screenshots/02_capture_before.png)
-![Capture — running](docs/screenshots/03_capture_running.png)
-![Capture — result](docs/screenshots/04_capture_result.png)
-
-### 15.3. History & Results
-![History](docs/screenshots/05_history.png)
-
-### 15.4. Rules & Email (trước → gửi test → kết quả)
-![Rules](docs/screenshots/06_rules.png)
-![Send test email](docs/screenshots/07_rules_send_test.png)
-![Sent Emails](docs/screenshots/08_sent_emails.png)
-
-### 15.5. User Management
-![User Management](docs/screenshots/09_user_management.png)
-
-### 15.6. API Server (đang chạy → Swagger)
-![API Server running](docs/screenshots/10_api_server.png)
-![Swagger docs](docs/screenshots/11_api_swagger.png)
-
-### 15.7. Chatbot (trước → đang trả lời → kết quả Markdown)
-![Chatbot — before](docs/screenshots/12_chatbot_before.png)
-![Chatbot — streaming](docs/screenshots/13_chatbot_streaming.png)
-![Chatbot — result](docs/screenshots/14_chatbot_result.png)
-
-### 15.8. Jupyter trong app
-![Jupyter in-app](docs/screenshots/15_jupyter.png)
