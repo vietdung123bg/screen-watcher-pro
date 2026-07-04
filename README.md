@@ -541,6 +541,43 @@ khi chưa có tool, trả lời **đúng ngôn ngữ người dùng**. Mỗi lư
 (username + role) và **watcher context mới nhất** (scoped theo quyền) vào prompt; lịch sử được replay
 có kiểm soát; lỗi tool (permission) được relay verbatim.
 
+#### Mock data — chi tiết, hạn chế & hướng phát triển
+
+Nguồn: [`app/services/mock_data.py`](app/services/mock_data.py); dùng bởi tool `generate_mock_data`
+(admin) và seed lần chạy đầu trong [`run.py`](run.py).
+
+**Đã làm được**
+- Tool **`generate_mock_data(count 1–5, scenario)`** (admin) sinh execution mẫu theo 3 scenario:
+  `error` (ERROR/TIMEOUT → ops_team), `payment` (declined/chargeback/fraud → finance_team),
+  `healthy` (không rule nào khớp).
+- Mỗi execution ghi đủ như một lần chụp thật: **screenshot** (status `success`, `target_app="Chrome
+  (mock)"`) + **OCR text** + **rule_evaluation** (`matched=1`) + **notification** (`status=simulated`).
+- **Seed lần chạy đầu** (DB rỗng) tự tạo 3 execution (thứ tự healthy → payment → error để **latest**
+  là bản có rule khớp), **idempotent** (đã có dữ liệu thì bỏ qua) và không chặn khởi động nếu lỗi.
+- Chatbot đọc được ngay qua `get_latest_watcher_result` / `get_execution`; cũng hiện ở tab **History
+  & Results**. `rule_id` khớp rule mặc định nên `get_alert_recipients`/notification nhất quán.
+- Có test: seed idempotent, latest-là-bản-khớp, clamp count, fallback scenario, tool admin-only.
+
+**Hạn chế hiện tại**
+- Ghi vào **DB thật** (`data/screenwatcher.db`) — mock **lẫn** với dữ liệu thật, chỉ phân biệt qua
+  nhãn *"(mock)"* ở `target_app`/`window_title`.
+- **Không có ảnh screenshot thật** (`file_path=None`) → tab preview ảnh trống cho bản mock; OCR là
+  **text soạn sẵn**, không phải OCR thật.
+- Notification chỉ **`simulated`** (không gửi mail), `recipients` để trống.
+- `rule_id` **hardcode** theo config mặc định (`error_detected`/`payment_keywords`) — đổi tên rule
+  trong `rules.yaml` có thể khiến mock không khớp `owners` hiện tại.
+- Mọi bản mock gán cho **admin** → user thường (scoped) không thấy; `captured_at` đều là **thời điểm
+  hiện tại** (không rải theo thời gian).
+- Chưa có tool **xoá hàng loạt** mock (phải `delete_execution` từng cái hoặc xoá DB); seed lần đầu
+  **chưa tắt được** qua config.
+
+**Chưa làm / sẽ phát triển tiếp**
+- Cờ bật/tắt seed trong `config/rules.yaml` (vd `ai.seed_mock_on_first_run`).
+- Tool **`clear_mock_data`** (hoặc lọc "chỉ mock") để dọn nhanh.
+- Sinh **ảnh placeholder PNG** cho bản mock để preview không trống.
+- Rải `captured_at` theo mốc thời gian, đa dạng OCR/severity, thêm scenario; đọc rule **động** từ
+  `rules.yaml` thay vì hardcode; tuỳ chọn gán mock cho **user hiện tại** để test scoping.
+
 **Công cụ (tools) của chatbot** — LLM gọi tool để truy vấn/thao tác DB **theo đúng quyền người hỏi**:
 `get_my_profile`, `get_latest_watcher_result`, `get_alert_recipients`, `get_execution`, `trigger_capture` (mọi user); `list_users`,
 `get_user`, **`create_user`**, `delete_user`, `delete_execution`, **`generate_mock_data`** (**admin**). Ví dụ: admin nhắn *"create a user

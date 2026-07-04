@@ -537,6 +537,11 @@ Có cho **mọi tài khoản đăng nhập**. Chat trực tiếp trong app với
   trạng thái) + chào hỏi cơ bản. Hỏi chủ đề ngoài app (nấu ăn, sửa xe, thể thao…) → từ chối một câu
   **tiếng Anh**: *"This question is outside the scope of the Tool Watcher Assistant..."*. Trả lời theo
   ngôn ngữ người hỏi; riêng câu từ chối luôn tiếng Anh.
+- **Dữ liệu giả (mock data):** admin có thể chat *"tạo 3 mock data error"* → tool
+  `generate_mock_data` seed execution mẫu (scenario `error`/`payment`/`healthy`) để có dữ liệu demo;
+  lần chạy **đầu tiên** (DB rỗng) app cũng tự seed sẵn. **Đã làm được / hạn chế (ghi vào DB thật,
+  không có ảnh thật, notification chỉ mô phỏng…) / hướng phát triển** xem chi tiết ở
+  [README.md §7.1 — Mock data](README.md#chatbot--4-khả-năng-cốt-lõi).
 - **🆕 New chat** (góc trên) — bắt đầu phiên hội thoại mới.
 - **Panel Chat history (bên trái)** — liệt kê các phiên chat đã lưu. **Bấm vào một phiên để mở lại
   và tiếp tục chat** (nội dung cũ được nạp lại làm ngữ cảnh). Nút **⟳** để tải lại danh sách.
