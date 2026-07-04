@@ -106,6 +106,15 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {}},
     }},
     {"type": "function", "function": {
+        "name": "get_alert_recipients",
+        "description": "Who receives alert emails: the configured owner groups and their "
+                       "recipient email addresses, which rule notifies which group, and "
+                       "whether email sending is enabled (read from config/rules.yaml). Use "
+                       "this for questions like 'which email receives alerts?' / "
+                       "'email nhận alert là email nào?'.",
+        "parameters": {"type": "object", "properties": {}},
+    }},
+    {"type": "function", "function": {
         "name": "get_execution",
         "description": "Get one watcher execution (screenshot) by its execution_id.",
         "parameters": {"type": "object", "properties": {
@@ -449,6 +458,29 @@ class ChatAgent:
     def _t_get_latest_watcher_result(self, user, **_):
         scope = None if is_admin(user) else user.id
         return self.ctx.latest(scope).to_dict()
+
+    def _t_get_alert_recipients(self, user, **_):
+        """Alert recipient configuration: owner groups + emails, which rule notifies
+        which group, and whether email sending is on. Read fresh from config/rules.yaml
+        so it reflects the current setup; contains no secrets (no SMTP password)."""
+        from app import config
+        cfg = config.load_app_config()
+        email = cfg.get("email", {}) or {}
+        owners = cfg.get("owners", {}) or {}
+        groups = {name: list((g or {}).get("emails") or []) for name, g in owners.items()}
+        rules = [{"rule": r.get("name") or r.get("id"),
+                  "severity": r.get("severity"),
+                  "owner_group": r.get("owner_group"),
+                  "recipients": groups.get(r.get("owner_group"), [])}
+                 for r in (cfg.get("rules") or [])]
+        all_emails = sorted({e for lst in groups.values() for e in lst})
+        return {
+            "email_enabled": bool(email.get("enabled", False)),
+            "email_from": email.get("from"),
+            "owner_groups": groups,
+            "rules": rules,
+            "all_recipient_emails": all_emails,
+        }
 
     def _t_get_execution(self, user, execution_id=None, **_):
         if not execution_id:

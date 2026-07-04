@@ -571,6 +571,7 @@ because there is no tool to support it."* ("admin" = role `admin` hoặc có quy
 |------|----------|---------|:--:|:--:|----------|
 | `get_my_profile` | Hồ sơ của chính mình | — | ✅ | ✅ | `GET /api/user/profile` |
 | `get_latest_watcher_result` | KQ watcher mới nhất (user: của mình; admin: tất cả) | — | ✅ | ✅ | `GET /api/watcher/executions/latest` |
+| `get_alert_recipients` | Email nhận alert: owner group + email, rule→group, email bật/tắt (đọc `config/rules.yaml`, không lộ secret) | — | ✅ | ✅ | — |
 | `get_execution` | Xem 1 execution (user: chỉ của mình; admin: bất kỳ) | `execution_id` | ✅ | ✅ | `GET /api/watcher/executions/{id}` |
 | `trigger_capture` | Chụp + OCR + rule | `targets`, `launch` | ✅ | ✅ | `POST /api/watcher/executions` |
 | `list_users` | Liệt kê tất cả user | — | ❌ | ✅ | `GET /api/admin/users` |

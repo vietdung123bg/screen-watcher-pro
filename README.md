@@ -459,7 +459,7 @@ Thiếu key → boot vẫn chạy, báo lỗi rõ lúc chat (`CONFIG_ERROR`, ret
 Xem provider/model đang dùng: **`GET /api/chat/provider`** (hoặc nhãn trên tab Chatbot). Docs: <http://127.0.0.1:8000/docs>.
 
 **Công cụ (tools) của chatbot** — LLM gọi tool để truy vấn/thao tác DB **theo đúng quyền người hỏi**:
-`get_my_profile`, `get_latest_watcher_result`, `get_execution`, `trigger_capture` (mọi user); `list_users`,
+`get_my_profile`, `get_latest_watcher_result`, `get_alert_recipients`, `get_execution`, `trigger_capture` (mọi user); `list_users`,
 `get_user`, **`create_user`**, `delete_user`, `delete_execution` (**admin**). Ví dụ: admin nhắn *"create a user
 bob role operator"* / *"delete user bob"* → chatbot thực hiện; user thường → *"You are a viewer and do not
 have permission to delete a user account."* Mọi lần chat + từng tool call (tên, tham số, kết quả) đều được **ghi log** (`logs/`).
@@ -474,6 +474,7 @@ Bảng tool ↔ quyền (định nghĩa trong `app/ai/chat_agent.py`; tool bị 
 |------|----------|---------|:--:|:--:|----------|
 | `get_my_profile` | Hồ sơ của chính mình | — | ✅ | ✅ | `GET /api/user/profile` |
 | `get_latest_watcher_result` | KQ watcher mới nhất (user: của mình; admin: tất cả) | — | ✅ | ✅ | `GET /api/watcher/executions/latest` |
+| `get_alert_recipients` | Email nhận alert: owner group + email, rule→group, email bật/tắt (đọc từ `config/rules.yaml`) | — | ✅ | ✅ | — |
 | `get_execution` | Xem 1 execution (user: chỉ của mình; admin: bất kỳ) | `execution_id` | ✅ | ✅ | `GET /api/watcher/executions/{id}` |
 | `trigger_capture` | Chụp + OCR + rule | `targets`, `launch` | ✅ | ✅ | `POST /api/watcher/executions` |
 | `list_users` | Liệt kê tất cả user | — | ❌ | ✅ | `GET /api/admin/users` |

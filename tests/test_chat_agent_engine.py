@@ -175,3 +175,33 @@ def test_mock_chat_stream_emits_final(tmp_path, monkeypatch):
     kinds = [e[0] for e in evs]
     assert kinds[0] == "meta" and kinds[-1] == "final"
     assert "[MOCK mode]" in [p for k, p in evs if k == "final"][-1]
+
+
+# ---------- get_alert_recipients tool ----------
+
+def test_get_alert_recipients_reads_config(tmp_path, monkeypatch):
+    """The tool answers 'which email receives alerts?' from config/rules.yaml."""
+    yaml_text = (
+        "rules:\n"
+        "  - id: r1\n"
+        "    name: Err\n"
+        "    owner_group: ops\n"
+        "    severity: high\n"
+        "owners:\n"
+        "  ops:\n"
+        "    emails: [ops@example.com, oncall@example.com]\n"
+        "email:\n"
+        "  enabled: true\n"
+        "  from: sender@example.com\n"
+    )
+    p = tmp_path / "rules.yaml"
+    p.write_text(yaml_text, encoding="utf-8")
+    monkeypatch.setattr("app.config.RULES_YAML", p)
+
+    out = _agent(tmp_path, mock=True)._t_get_alert_recipients(_user())
+    assert out["email_enabled"] is True
+    assert out["email_from"] == "sender@example.com"
+    assert out["owner_groups"]["ops"] == ["ops@example.com", "oncall@example.com"]
+    assert out["all_recipient_emails"] == ["oncall@example.com", "ops@example.com"]
+    assert out["rules"][0]["owner_group"] == "ops"
+    assert out["rules"][0]["recipients"] == ["ops@example.com", "oncall@example.com"]
