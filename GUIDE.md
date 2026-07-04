@@ -69,19 +69,46 @@ Copy-Item .ocr.env.example     .ocr.env       # OPENROUTER_API_KEY (OCR) + OCR_M
 Copy-Item .smtp.env.example    .smtp.env      # WATCHER_SMTP_PASSWORD (chỉ khi gửi mail thật)
 Copy-Item .chatbot.env.example .chatbot.env   # PROVIDER + key/model chatbot (xem §14.0)
 ```
-Mở `.ocr.env` điền **OPENROUTER_API_KEY** (lấy MIỄN PHÍ tại <https://openrouter.ai/keys>).
-Cả 3 file nạp tự động và đọc lại mỗi request (đổi key/provider không cần restart).
+Điền vào từng file (chỉ `.ocr.env` là bắt buộc để chạy OCR):
+- **`.ocr.env`** — `OPENROUTER_API_KEY` (lấy MIỄN PHÍ tại <https://openrouter.ai/keys>), tùy chọn
+  `OCR_MODEL` (mặc định `qwen/qwen3-vl-30b-a3b-instruct`).
+- **`.smtp.env`** — `WATCHER_SMTP_PASSWORD` (**chỉ khi gửi mail thật**): Gmail dùng **App Password
+  16 ký tự**, Brevo/SendGrid dùng **SMTP key**. Bỏ trống nếu chạy DRY-RUN.
+- **`.chatbot.env`** — `PROVIDER` (mặc định `OPENROUTER`, dùng chung key trong `.ocr.env`) + model
+  theo provider; `WATCHER_JWT_SECRET` để ký token REST API (để trống → dùng secret dev, chỉ demo).
+
+Cả 3 file nạp tự động và đọc lại mỗi request (đổi key/provider **không cần restart**).
 Chi tiết các trường xem [mục 5](#5-sửa-file-cấu-hình) và [§14.0](#140-chọn-llm-provider-ở-env-động).
 
 ### Chạy
+
+**Cách 1 — `run.cmd` (khuyến nghị trên Windows).** Tự tạo `.venv`, cài dependencies (và **cài
+lại mỗi khi `requirements.txt` đổi**), copy các file cấu hình/env mẫu nếu còn thiếu, rồi chạy:
+
+```cmd
+run.cmd            :: = run.cmd desktop
+run.cmd desktop    :: app desktop — admin đăng nhập sẽ TỰ bật luôn API Server + Jupyter
+run.cmd api        :: chỉ REST API server tại http://127.0.0.1:8000
+run.cmd notebook   :: mở Jupyter notebooks\chatbox.ipynb (client chatbox)
+run.cmd demo       :: API server (cửa sổ riêng) + notebook
+run.cmd test       :: chạy pytest
+```
+
+Mỗi lần chạy, output còn được ghi ra `logs\run_<mode>_<timestamp>.log`; **log hợp nhất mọi hành
+động app + LLM** (tool call: tên/tham số/kết quả — của cả desktop lẫn API server) nằm ở
+`logs\app_<YYYYMMDD>.log`. `run.cmd` cũng bật UTF-8 để log tiếng Việt/Hàn không lỗi.
+
+**Cách 2 — thủ công:**
 ```powershell
 python run.py
 ```
 Entry point [run.py](run.py) sẽ: tạo thư mục dữ liệu → nạp `rules.yaml` → khởi tạo SQLite
-(+ seed RBAC và tài khoản admin mặc định) → mở màn hình đăng nhập.
+(+ seed RBAC và tài khoản admin mặc định) → mở màn hình đăng nhập (**hiện giữa màn hình**).
 
 > Dữ liệu sinh ra: ảnh ở `data/screenshots/`, text OCR ở `data/ocr_results/`,
 > database `data/screenwatcher.db`, log ở `logs/`.
+> Chạy `python run.py` bằng Python global cần tự cài `notebook` + `pywebview` nếu muốn dùng tab
+> Jupyter (cửa sổ trong app); dùng `run.cmd` thì `.venv` đã có sẵn.
 
 ---
 
@@ -484,7 +511,9 @@ Ghi chú:
   thiếu pywebview → tự mở bằng **trình duyệt ngoài** (kèm gợi ý cài).
 - Cửa sổ WebView2 dùng engine Edge (có sẵn trên Windows 11). Chạy tiến trình riêng nên không treo
   app; **cả server lẫn cửa sổ tự tắt khi thoát app**. Log server ghi vào `logs/jupyter.log`.
-- Trong notebook: đăng nhập `admin / admin123` rồi chạy các cell để chat qua watcher API.
+- Trong notebook: chạy cell đầu — nó **hỏi mật khẩu qua `getpass`** (hoặc đọc biến môi trường
+  `WATCHER_PASS`, user mặc định `admin`), **không hard-code mật khẩu** trong file. Rồi chạy các cell
+  còn lại để chat qua watcher API.
 
 ---
 
