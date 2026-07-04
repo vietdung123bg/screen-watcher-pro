@@ -331,6 +331,53 @@ WATCHER_SMTP_PASSWORD=<SMTP key ở Bước 3>
 - Người nhận có thể thấy **From = `...@brevosend.com`** thay vì Gmail của bạn. Đây là **bình thường**: vì bạn chưa authenticate domain riêng, Brevo viết lại địa chỉ gửi sang domain đã xác thực của họ để **vượt SPF/DKIM/DMARC** (chính nhờ vậy thư mới vào được inbox). Muốn From hiển thị đúng địa chỉ đẹp → phải **authenticate một domain bạn sở hữu** (thêm DKIM/SPF vào DNS) — không làm được với gmail.com/company.com.
 - 🔐 SMTP key chỉ để trong `.smtp.env` (đã `.gitignore`). Nếu lộ → vào Brevo tạo key mới.
 
+---
+
+## 5.2. Tạo SMTP server với Gmail để gửi mail
+
+Muốn gửi thẳng bằng **tài khoản Gmail** (không qua Brevo) thì Gmail đóng vai trò **SMTP server**.
+Bắt buộc dùng **App Password** — Gmail chặn mật khẩu đăng nhập thường khi gửi qua SMTP.
+
+### Bước 1 — Bật xác minh 2 bước (2-Step Verification)
+Vào <https://myaccount.google.com/security> → **2-Step Verification** → **bật**.
+(Chưa bật thì Google **không cho tạo** App Password.)
+
+### Bước 2 — Tạo App Password (16 ký tự)
+Vào <https://myaccount.google.com/apppasswords> → đặt tên bất kỳ (vd `Screen Watcher`) →
+**Create** → Google hiện chuỗi **4 nhóm 4 ký tự** (vd `abcd efgh ijkl mnop`). Copy lại (chỉ hiện 1 lần).
+
+### Bước 3 — Điền vào app
+`config/rules.yaml` (khối `email`):
+```yaml
+email:
+  enabled: true
+  provider: gmail
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  use_tls: true
+  username: your-name@gmail.com     # chính địa chỉ Gmail của bạn
+  from: your-name@gmail.com          # PHẢI trùng username (Gmail chỉ gửi dưới danh nghĩa acc đã auth)
+  password_env: WATCHER_SMTP_PASSWORD
+owners:
+  ops_team:
+    emails: [nguoinhan@example.com]  # người nhận — tuỳ ý
+```
+`.smtp.env` (dán App Password, nên bỏ khoảng trắng):
+```
+WATCHER_SMTP_PASSWORD=abcdefghijklmnop
+```
+
+### Bước 4 — Gửi thử
+Khởi động lại app → tab **⚙ Rules & Email** → ô **To** → **✉ Send test email**.
+Log báo *EMAIL SENT … via smtp.gmail.com:587* là thành công.
+
+### Lưu ý Gmail
+- **`from` phải TRÙNG `username`** — Gmail chỉ gửi dưới danh nghĩa tài khoản đã xác thực; đặt khác → `Sender refused`.
+- Dùng **App Password 16 ký tự**, KHÔNG dùng mật khẩu đăng nhập (sẽ `535 Authentication failed`).
+- Giới hạn ~**500 email/ngày** — đủ cho demo/test.
+- Gửi từ Gmail (freemail) tới hộp thư **doanh nghiệp** (vd `@company.com`, `@fpt.com`) dễ rơi vào **Spam/Quarantine** hoặc bị chặn → kiểm tra Spam người nhận; muốn tin cậy hơn dùng **domain riêng có SPF/DKIM** hoặc relay Brevo ([§5.1](#51-tạo-smtp-với-brevo-để-gửi-mail-khuyến-nghị)).
+- Lỗi `Your SMTP account is not yet activated…` là của **Brevo**, KHÔNG phải Gmail — thấy lỗi này nghĩa là config vẫn đang trỏ `smtp-relay.brevo.com`, hãy đổi sang preset `gmail` như trên.
+
 Sửa YAML/`.env` xong nhớ **khởi động lại app**.
 
 ---
@@ -461,6 +508,33 @@ Chatbot dùng LLM qua **OpenAI-compatible API**; provider/model/key đọc từ 
 Các knob **không bí mật** ở `config/rules.yaml` mục `ai:` (`timeout_seconds` 120, `max_context_chars` 6000, `mock`).
 Thiếu key → boot vẫn chạy, báo lỗi rõ lúc chat (`CONFIG_ERROR`, retryable). `mock: true` để chạy không cần LLM.
 Xem provider/model đang dùng: **`GET /api/chat/provider`** (hoặc nhãn trên tab Chatbot). Docs: <http://127.0.0.1:8000/docs>.
+
+### Chatbot — 4 khả năng cốt lõi
+
+Trợ lý AI được xây quanh 4 mục tiêu; dưới đây là cách mỗi mục tiêu được hiện thực trong code.
+
+**1) Tạo & dùng dữ liệu giả (mock data).** Đặt `ai.mock: true` trong `config/rules.yaml` → chatbot
+chạy **không cần LLM thật**, trả `[MOCK mode]…` (demo/CI không tốn key, không gọi mạng). Bộ
+**`test_pages/*.html`** là dashboard giả lập đời thực để sinh dữ liệu watcher cho chatbot đọc; test
+tự động dùng **fake client / fake OpenCode CLI**. Định nghĩa: `ProviderConfig.mock`, nhánh mock trong
+`ChatAgent._prepare()`.
+
+**2) Gọi hàm/tool (function calling).** LLM gọi tool theo **chuẩn OpenAI function-calling**
+(`tools=[…]`, `tool_choice="auto"`). Vòng lặp `ChatAgent._iter_turn()` đọc `tool_calls` (gom từng
+mảnh khi streaming), dispatch qua `_dispatch()`, trả kết quả JSON về model. **Mỗi tool tự kiểm quyền
+theo người hỏi** (xem bảng tool bên dưới).
+
+**3) Gộp request để hiệu quả (request batching).** Trong **một** bước, model có thể yêu cầu **nhiều
+tool cùng lúc** → `_iter_turn` **thực thi tất cả rồi gộp toàn bộ kết quả**, chỉ gọi LLM tiếp **một
+lần** (giảm số round-trip). Ngoài ra: chỉ nạp **N tin nhắn gần nhất** (`CONTEXT_MESSAGES=20`) + **cắt**
+watcher context ở `ai.max_context_chars` (mặc định 6000) để prompt gọn/ít token; **streaming**
+(`stream:true`) trả token dần giảm độ trễ cảm nhận; `MAX_TOOL_STEPS=6` chặn vòng lặp tốn kém.
+
+**4) Xử lý prompt hiệu quả (handle prompts).** `SYSTEM_PROMPT` được thiết kế kỹ: **kiểm soát phạm
+vi** (chỉ hỗ trợ app, từ chối off-topic bằng câu tiếng Anh cố định), vai trò **support/định hướng**
+khi chưa có tool, trả lời **đúng ngôn ngữ người dùng**. Mỗi lượt còn chèn **danh tính người dùng**
+(username + role) và **watcher context mới nhất** (scoped theo quyền) vào prompt; lịch sử được replay
+có kiểm soát; lỗi tool (permission) được relay verbatim.
 
 **Công cụ (tools) của chatbot** — LLM gọi tool để truy vấn/thao tác DB **theo đúng quyền người hỏi**:
 `get_my_profile`, `get_latest_watcher_result`, `get_alert_recipients`, `get_execution`, `trigger_capture` (mọi user); `list_users`,

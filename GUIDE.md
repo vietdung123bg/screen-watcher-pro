@@ -7,7 +7,8 @@ người dùng).
 > Giao diện app hiển thị bằng **tiếng Anh**. Tài liệu này dùng tiếng Việt để giải thích,
 > nhưng giữ nguyên **tên tab/nút tiếng Anh** đúng như trên app để bạn dễ đối chiếu.
 >
-> Phần cài đặt SMTP/Brevo chuyên sâu xem thêm ở [README.md](README.md) (mục 5 & 5.1).
+> Phần cài đặt SMTP chuyên sâu xem thêm ở [README.md](README.md): mục 5, **5.1 (Brevo)** và
+> **5.2 (Gmail)**.
 
 ---
 
