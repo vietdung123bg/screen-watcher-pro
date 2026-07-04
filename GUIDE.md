@@ -518,6 +518,9 @@ Có cho **mọi tài khoản đăng nhập**. Chat trực tiếp trong app với
 - LLM chạy **nền** nên UI không treo. Provider/model chọn ở `.chatbot.env` (xem §14.0).
 - **Trả lời dạng streaming**: câu trả lời hiện dần **theo token** thay vì đợi xong mới hiện. Khi
   trợ lý đang gọi tool, dòng trạng thái hiển thị *⚙ using {tên_tool}…*.
+- **Định dạng Markdown/HTML**: câu trả lời được render **đậm/nghiêng, tiêu đề, danh sách, `code` +
+  khối code, blockquote, link** (Markdown; HTML cơ bản cũng được chuyển đổi) — token stream ra thô,
+  khi hoàn tất tự format lại. Lịch sử hội thoại khi mở lại cũng hiển thị đã định dạng.
 - **Hội thoại được lưu vào DB theo từng user** (bảng `chat_sessions`/`chat_messages`) — tối ưu
   ghi nặng: chỉ lưu tin nhắn user + trả lời cuối, kèm metadata (model/provider/latency).
 - **Log chi tiết LLM** (cả app desktop lẫn API, cùng dùng `ChatAgent` → ghi vào `logs/`): mỗi

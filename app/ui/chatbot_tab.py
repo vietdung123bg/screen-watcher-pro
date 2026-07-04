@@ -23,6 +23,7 @@ from app.ai.conversation_store import ChatStore
 from app.ai.models import OK, ChatMessage
 from app.ai.provider_config import ProviderConfig
 from app.ai.watcher_context_service import WatcherContextService
+from app.ui.rich_text import configure_markdown_tags, insert_markdown
 
 
 class ChatbotTab(ttk.Frame):
@@ -87,6 +88,7 @@ class ChatbotTab(ttk.Frame):
         self.view.tag_configure("you", foreground="#06c", font=("Segoe UI", 11, "bold"))
         self.view.tag_configure("ai", foreground="#0a7", font=("Segoe UI", 11, "bold"))
         self.view.tag_configure("err", foreground="#a00")
+        configure_markdown_tags(self.view)   # bold/italic/code/heading/list/link tags
 
         self.status_lbl = ttk.Label(right, text="", foreground="#0a7",
                                      font=("Segoe UI", 9, "italic"))
@@ -139,10 +141,14 @@ class ChatbotTab(ttk.Frame):
         vs.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self._on_select_session)
 
-    def _append(self, tag: str, who: str, text: str) -> None:
+    def _append(self, tag: str, who: str, text: str, markdown: bool = False) -> None:
         self.view.config(state="normal")
         self.view.insert("end", f"{who}: ", tag)
-        self.view.insert("end", text + "\n\n")
+        if markdown:
+            insert_markdown(self.view, text)   # render **bold**/lists/code/HTML → tags
+            self.view.insert("end", "\n")
+        else:
+            self.view.insert("end", text + "\n\n")
         self.view.config(state="disabled")
         self.view.see("end")
 
@@ -213,7 +219,7 @@ class ChatbotTab(ttk.Frame):
             elif m.error_code and m.error_code != OK:
                 self._append("err", "Error", m.content)
             else:
-                self._append("ai", "Assistant", m.content)
+                self._append("ai", "Assistant", m.content, markdown=True)
 
         if own:
             # Reopen for continuation: reload the recent context the model will see.
@@ -302,12 +308,17 @@ class ChatbotTab(ttk.Frame):
         if not self._streaming:
             self.status_lbl.config(text=f"⚙  using {name}…")
 
+    _MSG_MARK = "asst_msg_start"     # marks where the current streamed reply begins
+
     def _on_delta(self, chunk: str) -> None:
-        """Append a streamed answer token, opening the 'Assistant:' line on first token."""
+        """Append a streamed answer token, opening the 'Assistant:' line on first token.
+        Tokens stream as RAW text (fast); the block is re-rendered as Markdown on finish."""
         self.view.config(state="normal")
         if not self._streaming:
             self._streaming = True
             self.status_lbl.config(text="")
+            self.view.mark_set(self._MSG_MARK, "end-1c")   # start of this reply
+            self.view.mark_gravity(self._MSG_MARK, "left")
             self.view.insert("end", "Assistant: ", "ai")
         self.view.insert("end", chunk)
         self.view.config(state="disabled")
@@ -332,11 +343,20 @@ class ChatbotTab(ttk.Frame):
             return
         if result.ok:
             if self._streaming:
-                # The full reply already streamed into the view — just close the line.
-                _end_streamed_line()
+                # Replace the RAW streamed block with a Markdown-rendered version.
+                self.view.config(state="normal")
+                try:
+                    self.view.delete(self._MSG_MARK, "end-1c")
+                except Exception:
+                    pass
+                self.view.insert("end", "Assistant: ", "ai")
+                insert_markdown(self.view, result.reply)
+                self.view.insert("end", "\n")
+                self.view.config(state="disabled")
+                self.view.see("end")
             else:
                 # Nothing streamed (edge case) — render the reply in one shot.
-                self._append("ai", "Assistant", result.reply)
+                self._append("ai", "Assistant", result.reply, markdown=True)
             self._history.append(ChatMessage("user", user_text))
             self._history.append(ChatMessage("assistant", result.reply))
         else:
