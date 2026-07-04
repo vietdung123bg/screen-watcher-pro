@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaPay — Payments Operations Dashboard</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#243349; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --red:#ef4444; --amber:#f59e0b;
+    --green:#22c55e; --blue:#3b82f6; --violet:#8b5cf6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);
+       color:var(--text);padding:22px 28px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;
+          border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:22px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:38px;height:38px;border-radius:9px;
+        background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;
+        align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff}
+  .brand h1{font-size:20px;font-weight:700}
+  .brand span{color:var(--muted);font-size:13px}
+  .topright{text-align:right;color:var(--muted);font-size:13px;line-height:1.5}
+  .env{display:inline-block;background:#3f2d16;color:#fbbf24;border:1px solid #7c5a12;
+       padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px}
+
+  /* Critical alert banner — contains the FRAUD keyword */
+  .alert{display:flex;align-items:center;gap:14px;background:#3b1218;
+         border:1px solid var(--red);border-left:6px solid var(--red);
+         padding:14px 18px;border-radius:10px;margin-bottom:22px}
+  .alert .ic{font-size:26px}
+  .alert b{color:#fecaca}
+  .alert .big{font-size:19px;font-weight:800;color:#fee2e2}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+  .card .value{font-size:28px;font-weight:800;margin-top:8px}
+  .card .delta{font-size:12px;margin-top:6px}
+  .up{color:var(--green)} .down{color:var(--red)}
+  .value.red{color:#f87171} .value.amber{color:#fbbf24}
+
+  .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .panel h2{font-size:15px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+  .panel h2 .cnt{font-size:12px;color:var(--muted);font-weight:500}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;
+     text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:11px 10px;border-bottom:1px solid #2a3a52}
+  tr:last-child td{border-bottom:none}
+  .mono{font-family:Consolas,monospace;color:#cbd5e1}
+  .amt{font-weight:700}
+  .pill{display:inline-block;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.3px}
+  .p-declined{background:#4c1d24;color:#fca5a5;border:1px solid #7f1d1d}
+  .p-chargeback{background:#4a2410;color:#fdba74;border:1px solid #9a3412}
+  .p-fraud{background:#3b1764;color:#d8b4fe;border:1px solid #6d28d9}
+  .p-ok{background:#14361f;color:#86efac;border:1px solid #166534}
+
+  .dispute{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:var(--panel2)}
+  .dispute .row1{display:flex;justify-content:space-between;font-weight:700}
+  .dispute .sub{color:var(--muted);font-size:12.5px;margin-top:5px}
+  .tag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px}
+  .tag.cb{background:#4a2410;color:#fdba74}
+  .tag.fr{background:#3b1764;color:#d8b4fe}
+  .footer{color:var(--muted);font-size:12px;margin-top:20px;text-align:center}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">N</div>
+      <div>
+        <h1>NovaPay · Payments Operations</h1>
+        <span>Risk &amp; Disputes Console — Merchant #48213</span>
+      </div>
+    </div>
+    <div class="topright">
+      <span class="env">PRODUCTION</span><br>
+      Window: last 24 hours · Auto-refresh 60s<br>
+      Region: APAC / VN
+    </div>
+  </div>
+
+  <!-- FRAUD keyword lives here, large and clear for OCR -->
+  <div class="alert">
+    <div class="ic">🚨</div>
+    <div>
+      <div class="big">FRAUD ALERT — 3 payments flagged for suspected fraud, manual review required</div>
+      <b>declined</b> at authorization · risk score &gt; 0.90 · possible card-testing pattern detected
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="card">
+      <div class="label">Gross volume (24h)</div>
+      <div class="value">$1,284,530</div>
+      <div class="delta up">▲ 4.2% vs yesterday</div>
+    </div>
+    <div class="card">
+      <div class="label">Declined transactions</div>
+      <div class="value red">312</div>
+      <div class="delta down">▲ 18% · decline rate 6.7%</div>
+    </div>
+    <div class="card">
+      <div class="label">Chargebacks opened</div>
+      <div class="value amber">27</div>
+      <div class="delta down">▲ 9 new chargeback disputes</div>
+    </div>
+    <div class="card">
+      <div class="label">Fraud flagged</div>
+      <div class="value red">14</div>
+      <div class="delta down">▲ 3 high-risk in last hour</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Recent transactions <span class="cnt">showing 8 of 2,910</span></h2>
+      <table>
+        <thead>
+          <tr><th>Txn ID</th><th>Customer</th><th>Amount</th><th>Status</th><th>Reason</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">txn_9F2A11</td><td>Le Minh Q.</td><td class="amt">$742.00</td>
+              <td><span class="pill p-fraud">FRAUD</span></td><td>Suspected fraud — card testing</td></tr>
+          <tr><td class="mono">txn_9F2A0e</td><td>Tran Bao</td><td class="amt">$1,299.00</td>
+              <td><span class="pill p-declined">DECLINED</span></td><td>Issuer declined — do not honor</td></tr>
+          <tr><td class="mono">txn_9F29f7</td><td>GlobalMart Ltd</td><td class="amt">$358.50</td>
+              <td><span class="pill p-chargeback">CHARGEBACK</span></td><td>Chargeback — product not received</td></tr>
+          <tr><td class="mono">txn_9F29c3</td><td>Nguyen An</td><td class="amt">$89.90</td>
+              <td><span class="pill p-ok">CAPTURED</span></td><td>—</td></tr>
+          <tr><td class="mono">txn_9F29b0</td><td>K. Pham</td><td class="amt">$2,140.00</td>
+              <td><span class="pill p-declined">DECLINED</span></td><td>Insufficient funds</td></tr>
+          <tr><td class="mono">txn_9F2998</td><td>ShopVerse</td><td class="amt">$610.00</td>
+              <td><span class="pill p-fraud">FRAUD</span></td><td>Fraud rule R-207 triggered</td></tr>
+          <tr><td class="mono">txn_9F2977</td><td>Do Thi H.</td><td class="amt">$47.25</td>
+              <td><span class="pill p-ok">CAPTURED</span></td><td>—</td></tr>
+          <tr><td class="mono">txn_9F2955</td><td>MegaByte JSC</td><td class="amt">$980.00</td>
+              <td><span class="pill p-chargeback">CHARGEBACK</span></td><td>Chargeback — fraudulent transaction</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Open disputes <span class="cnt">27 chargebacks</span></h2>
+
+      <div class="dispute">
+        <div class="row1"><span>#CB-10482</span><span class="tag cb">CHARGEBACK</span></div>
+        <div class="sub">$358.50 · GlobalMart Ltd · reason: product not received · respond by 03 Jul</div>
+      </div>
+      <div class="dispute">
+        <div class="row1"><span>#CB-10479</span><span class="tag fr">FRAUD</span></div>
+        <div class="sub">$980.00 · MegaByte JSC · reason: fraudulent transaction · evidence required</div>
+      </div>
+      <div class="dispute">
+        <div class="row1"><span>#CB-10475</span><span class="tag cb">CHARGEBACK</span></div>
+        <div class="sub">$1,299.00 · Tran Bao · payment declined then re-disputed · under review</div>
+      </div>
+      <div class="dispute">
+        <div class="row1"><span>#CB-10471</span><span class="tag fr">FRAUD</span></div>
+        <div class="sub">$742.00 · Le Minh Q. · suspected fraud · card-testing pattern</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    NovaPay Risk Console · Keywords on this screen for the watcher demo:
+    <b>declined</b>, <b>chargeback</b>, <b>fraud</b> · generated for finance alert testing
+  </div>
+
+</body>
+</html>
