@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from app.context import AppContext
-from app.ui import clear_widget
+from app.ui import center_window, clear_widget
 
 
 class LoginWindow:
@@ -16,7 +16,7 @@ class LoginWindow:
         self.on_success = on_success
         clear_widget(root)
         root.title("Screen Watcher Pro — Sign in")
-        root.geometry("420x340")
+        center_window(root, 420, 340)
         self._build()
 
     def _build(self) -> None:

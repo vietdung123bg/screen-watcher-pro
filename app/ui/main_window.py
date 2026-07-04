@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from app.context import AppContext
-from app.ui import clear_widget
+from app.ui import center_window, clear_widget
 from app.ui.api_tab import ApiServerTab
 from app.ui.capture_tab import CaptureTab
 from app.ui.chatbot_tab import ChatbotTab
@@ -25,7 +25,7 @@ class MainWindow:
         clear_widget(root)
         user = ctx.current_user
         root.title(f"Screen Watcher — {user.username} ({user.role_name})")
-        root.geometry("1040x720")
+        center_window(root, 1040, 720)
         self._build()
 
     def _build(self) -> None:
