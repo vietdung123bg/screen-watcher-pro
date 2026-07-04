@@ -468,10 +468,12 @@ Ghi chú:
 Chỉ hiện với **admin** (`user.manage`). Khởi động **Jupyter server** phục vụ `notebooks/chatbox.ipynb`
 — client notebook gọi REST API (server API đã tự chạy ở tab 🚀 API Server).
 
+- **Tự khởi động cùng app**: khi admin đăng nhập, Jupyter server tự chạy (song song với API Server)
+  và giao diện notebook tự mở trong cửa sổ WebView2 — **không cần bấm Start**.
 - **Host / Port** — mặc định `127.0.0.1` / `8888`.
-- **▶ Start Jupyter** — chạy `jupyter notebook … --no-browser` trong **tiến trình con**. App **tự đọc
-  URL kèm token** từ log Jupyter; khi có URL, **tự mở giao diện Jupyter trong một cửa sổ WebView2
-  do app quản lý** (một tiến trình con riêng, dùng pywebview).
+- **▶ Start Jupyter** — (dùng khi đã Stop) chạy `jupyter notebook … --no-browser` trong **tiến trình
+  con**. App **tự đọc URL kèm token** từ log Jupyter; khi có URL, **tự mở giao diện Jupyter trong một
+  cửa sổ WebView2 do app quản lý** (một tiến trình con riêng, dùng pywebview).
 - **📓 Open in app** — mở lại cửa sổ WebView2 nếu đã đóng.
 - **🌐 Browser** — mở `chatbox.ipynb` (kèm token) bằng trình duyệt ngoài.
 - **■ Stop** — dừng Jupyter server **và** đóng cửa sổ WebView2.

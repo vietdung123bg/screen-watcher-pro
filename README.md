@@ -339,15 +339,17 @@ Chạy nhanh trên Windows:
 run.cmd
 ```
 
-`run.cmd` tự tạo `.venv`, cài dependencies, copy file mẫu nếu thiếu, rồi chạy desktop app. Các mode khác:
+`run.cmd` tự tạo `.venv`, **cài lại dependencies mỗi khi `requirements.txt` đổi** (so sánh mtime — trước đây chỉ cài 1 lần nên gói thêm sau bị bỏ sót), copy file mẫu nếu thiếu, rồi chạy desktop app. Các mode khác:
 
 ```cmd
-run.cmd desktop    :: desktop app
+run.cmd desktop    :: desktop app (tự bật API server + Jupyter)
 run.cmd api        :: FastAPI server tại http://127.0.0.1:8000
 run.cmd notebook   :: Jupyter chatbox
 run.cmd demo       :: API server + Jupyter chatbox
 run.cmd test       :: pytest
 ```
+
+**Log:** mỗi lần chạy, `run.cmd` (desktop/api/notebook/demo) **ghi lại toàn bộ output** ra `logs\run_<mode>_<timestamp>.log` (vẫn hiện song song trên console). Log **hợp nhất mọi hành động app + LLM** (tool call: tên, tham số, response, output — của cả desktop lẫn API server, cùng ghi vào một file) nằm ở `logs\app_<YYYYMMDD>.log`.
 
 Runbook demo workshop: [RUNBOOK.md](RUNBOOK.md).
 
@@ -377,7 +379,9 @@ python run.py
 6. Tab **👥 User Management** (admin).
 7. Tab **🚀 API Server** (admin): server REST API **tự khởi động cùng app** — không cần bấm Start. Bấm **■ Stop** để tắt; khi đã tắt nút **▶ Start** mới bật trở lại để chạy lại. Mở nhanh Swagger `/docs`. Server chạy tiến trình riêng, tự tắt khi thoát app.
 8. Tab **💬 Chatbot** (mọi user): trò chuyện với trợ lý AI ngay trong app. AI gọi tool truy vấn/thao tác DB **theo đúng quyền của bạn** (vd chỉ admin mới tạo/xóa user qua chat). Panel **Chat history** bên trái liệt kê các phiên đã lưu để **chọn và tiếp tục chat**; riêng **admin** thấy phiên của **mọi user** (kèm cột User) nhưng chỉ **tiếp tục được phiên của chính mình** — phiên của người khác mở ở chế độ **chỉ đọc** 🔒. Có nút **🆕 New chat** (bắt đầu phiên mới) và **hiển thị provider/model đang dùng** ở góc phải. Provider/model chọn ở `.chatbot.env`. Câu trả lời **stream theo token** (hiện dần), và trong lúc chờ có dòng trạng thái *⚙ using {tool}…* cho biết trợ lý đang gọi tool nào.
-9. Tab **📓 Jupyter** (admin): khởi động **Jupyter server** cho `notebooks/chatbox.ipynb` (client notebook gọi REST API) ngay trong app. Bấm **▶ Start Jupyter** → app tự lấy URL kèm token từ log rồi **mở giao diện Jupyter trong cửa sổ WebView2 do app quản lý** (nút **📓 Open in app** để mở lại; **🌐 Browser** để mở bằng trình duyệt ngoài). **■ Stop** đóng cả server lẫn cửa sổ (tự đóng khi thoát app). Cần `pip install notebook` và `pip install pywebview` (cho cửa sổ trong app); thiếu pywebview thì tự mở bằng trình duyệt, thiếu Jupyter thì tab báo rõ.
+9. Tab **📓 Jupyter** (admin): **tự khởi động cùng app** — Jupyter server cho `notebooks/chatbox.ipynb` (client notebook gọi REST API) chạy ngay khi admin đăng nhập, app lấy URL kèm token từ log rồi **mở giao diện Jupyter trong cửa sổ WebView2 do app quản lý**. Nút **📓 Open in app** (mở lại), **🌐 Browser** (mở trình duyệt ngoài), **■ Stop** (đóng cả server lẫn cửa sổ; tự đóng khi thoát app). Cần `pip install notebook` + `pip install pywebview`; thiếu pywebview thì tự mở bằng trình duyệt, thiếu Jupyter thì tab báo rõ.
+
+> **Khởi động app = khởi động luôn API Server + Jupyter.** Với tài khoản admin, mở app (tab desktop) sẽ **tự bật cả REST API server lẫn Jupyter notebook** — không cần bấm Start thủ công.
 
 ### Demo chat AI có kiểm soát
 

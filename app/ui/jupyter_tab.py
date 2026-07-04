@@ -74,6 +74,10 @@ class JupyterTab(ttk.Frame):
         self._auto_opened = False             # open the app window once per server start
         self._build()
         atexit.register(self._kill)           # never leave the server running after exit
+        # Auto-start together with the app (like the API Server tab): the notebook
+        # comes up and opens in the app window without pressing Start. After a manual
+        # Stop the Start button re-enables. Deferred so the UI is realized first.
+        self.after(700, self._autostart)
         self._poll()
 
     # ---------- UI ----------
@@ -130,6 +134,11 @@ class JupyterTab(ttk.Frame):
     # ---------- actions ----------
     def _notebook_path(self):
         return config.BASE_DIR / NOTEBOOK_REL
+
+    def _autostart(self) -> None:
+        """Bring Jupyter up on app launch (best-effort; user can retry via Start)."""
+        if not self._running():
+            self._start()
 
     def _start(self) -> None:
         if self._running():
