@@ -31,6 +31,9 @@ data/*.bak
 # Copy config/rules.example.yaml -> config/rules.yaml and fill in your own values.
 config/rules.yaml
 
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
 # ===== IDE / OS noise =====
 .vscode/
 .idea/
