@@ -102,6 +102,15 @@ def setup_logging() -> logging.Logger:
     ensure_dirs()
     log_file = LOG_DIR / f"app_{datetime.now():%Y%m%d}.log"
 
+    # On Windows the console defaults to cp1252, which cannot encode Vietnamese/
+    # Korean text (e.g. 'ệ') — logging an LLM reply then raises UnicodeEncodeError
+    # in the console handler. Force stdout/stderr to UTF-8 (replace on failure).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     logger = logging.getLogger("screen_watcher")
     logger.setLevel(logging.INFO)
     logger.propagate = False   # our handlers only — avoid double lines via root/uvicorn

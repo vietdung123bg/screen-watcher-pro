@@ -2,6 +2,12 @@
 setlocal
 
 cd /d "%~dp0"
+
+:: Run Python in UTF-8 mode so logging Vietnamese/Korean text to the console never
+:: hits the cp1252 UnicodeEncodeError (inherited by the API/Jupyter child processes too).
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
+
 set "MODE=%~1"
 if "%MODE%"=="" set "MODE=desktop"
 
