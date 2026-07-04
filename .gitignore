@@ -30,6 +30,8 @@ data/*.bak
 # ===== Local config with real credentials / personal emails =====
 # Copy config/rules.example.yaml -> config/rules.yaml and fill in your own values.
 config/rules.yaml
+# Stray top-level rules.yaml is not used by the app (it reads config/rules.yaml).
+/rules.yaml
 
 # ===== Jupyter =====
 .ipynb_checkpoints/
