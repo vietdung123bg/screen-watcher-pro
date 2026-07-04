@@ -468,11 +468,16 @@ have permission to delete a user account."*
 
 **Phạm vi hỗ trợ (scope control):** trợ lý **chỉ** hỗ trợ vận hành Tool Watcher — kết quả watcher, OCR, rule, email/alert, execution, tài khoản, trạng thái hệ thống — **cộng chào hỏi & hỗ trợ cơ bản** về app. Hỏi chủ đề **ngoài app** (nấu ăn, sửa xe, thể thao, thời tiết, kiến thức chung…) → từ chối bằng đúng một câu **tiếng Anh**: *"This question is outside the scope of the Tool Watcher Assistant. Please ask about watcher results, OCR, rules, or system status."* Trả lời theo đúng ngôn ngữ người hỏi (Việt/Anh), riêng câu từ chối luôn tiếng Anh.
 
-**Hai loại thông báo từ chối** (đều bằng tiếng Anh):
-- **Sai quyền** — người dùng nhờ làm việc mà tool có nhưng role không đủ quyền → *"You are a {role} and do not have permission to {thing}."* (ví dụ user thường xóa tài khoản → *"You are a viewer and do not have permission to delete a user account."*).
-- **Chưa có tool** — nhờ làm việc mà **chưa có tool nào hỗ trợ** → *"I cannot perform this action because there is no tool to support it."*
+**Trợ lý hỗ trợ (support) — định hướng khi chưa có tool:** nếu bạn hỏi/nhờ giải quyết một vấn đề
+**về app** mà **chưa có tool** để tự thao tác, trợ lý **KHÔNG từ chối** — nó nói rõ không làm trực
+tiếp được rồi **hướng dẫn từng bước** (làm ở đâu trong app desktop hoặc endpoint REST nào). Các việc
+kiểu này: **đổi mật khẩu, sửa hồ sơ (email/tên/điện thoại), đổi role / bật–tắt user, sửa rule /
+owner / cấu hình email, gửi hoặc gửi lại email**. (Trợ lý còn dùng `get_alert_recipients` để chỉ ra
+ai đang nhận alert khi bạn hỏi về email.)
 
-**Chưa hỗ trợ qua chat (chưa có tool → trả về thông báo "no tool" ở trên):** đổi mật khẩu, sửa hồ sơ (email/tên/điện thoại), đổi role / bật–tắt user, sửa rule / owner / cấu hình email, gửi hoặc gửi lại email thủ công. Những việc này hiện làm trực tiếp trong **app desktop** (tab tương ứng) hoặc **REST API** — có thể bổ sung thành tool sau.
+**Từ chối vì thiếu quyền** (tiếng Anh): tool có nhưng role không đủ quyền → *"You are a {role} and
+do not have permission to {thing}."* (ví dụ user thường xóa tài khoản → *"You are a viewer and do
+not have permission to delete a user account."*).
 
 Bảng tool ↔ quyền (định nghĩa trong `app/ai/chat_agent.py`; tool bị chặn do sai quyền → chatbot báo *"You are a {role} and do not have permission to {thing}."*; "admin" = role `admin` hoặc có quyền `user.manage`):
 

@@ -9,8 +9,10 @@ is authorized exactly like the REST endpoints:
     * Admin only: list/soft-delete users, soft-delete executions, view any execution.
     * Denied actions return "You are a {role} and do not have permission to {thing}."
       which the model relays to the user (in English).
-    * A request that no tool can serve (e.g. change password — no such tool exists)
-      returns "I cannot perform this action because there is no tool to support it."
+    * App requests with no tool to perform them (e.g. change password, edit rules) are
+      NOT dead-ends: the model explains it can't do it directly and GUIDES the user to
+      the right place (desktop tab or REST API). Off-topic questions are still refused.
+      NO_TOOL_MESSAGE remains only as an internal fallback for an unknown tool name.
 
 Tools operate through the writable Repository; the LLM never touches SQL directly.
 Secrets and full prompts are never logged (only model + latency + request id).
@@ -41,7 +43,9 @@ def _short(s, n: int = 600) -> str:
 
 MAX_TOOL_STEPS = 6
 
-# Returned when the user asks for something that NO tool implements (feature not built).
+# Internal fallback only: returned by _dispatch when the model calls a tool name that
+# doesn't exist. For real "no tool for this action" requests the model now GUIDES the
+# user (see SUPPORT ROLE in SYSTEM_PROMPT) instead of returning this.
 NO_TOOL_MESSAGE = "I cannot perform this action because there is no tool to support it."
 
 
@@ -84,12 +88,25 @@ SYSTEM_PROMPT = (
     "When in doubt (e.g. a greeting or a vague question about the app), treat it as IN-SCOPE and help.\n"
     "Use the provided tools to look up or act on data (watcher results, executions, user "
     "accounts) whenever the question needs live data — do not invent values.\n"
-    "Authorization is enforced by the tools themselves: if a tool returns an 'error' message, "
-    "relay that exact message to the user verbatim and never claim you performed the action.\n"
-    "If the user asks for an action that NONE of the available tools can perform (for example "
-    "changing a password — there is no such tool), do not attempt any tool: reply with exactly "
-    f"\"{NO_TOOL_MESSAGE}\"\n"
-    "If the answer is not in the data, say so."
+    "Authorization is enforced by the tools themselves: if a tool returns an 'error' (e.g. "
+    "permission denied), relay what it says to the user and never claim you performed the action.\n"
+    "SUPPORT ROLE — help users solve Tool Watcher problems. If an app question or request has NO "
+    "tool to perform it, do NOT just refuse: say you cannot do it directly, then GUIDE the user "
+    "with concrete steps (in the desktop app or via the REST API). Reference:\n"
+    "  - Change own password: forced on first login; otherwise POST /api/user/change-password; an "
+    "admin resets it in the User Management tab or PUT /api/admin/users/{id}.\n"
+    "  - Manage users (create / change role / enable-disable / delete): admin only — the User "
+    "Management tab, or the /api/admin/users endpoints.\n"
+    "  - Edit rules, alert recipients (owners), turn email on/off, sender/SMTP: edit "
+    "config/rules.yaml (rules, owners.*.emails, email.enabled, email.from) and .smtp.env for the "
+    "SMTP password, then restart the app; call get_alert_recipients to show who is configured now.\n"
+    "  - Email not sent / who receives alerts: mail goes to the matched rule's owner_group "
+    "recipients; check the 'Sent Emails' tab and the send explanation; a placeholder recipient or "
+    "email.enabled=false means it won't really send.\n"
+    "  - Run a capture: the Capture & OCR tab, or the trigger_capture tool / POST "
+    "/api/watcher/executions.\n"
+    "Keep guidance short and specific to Tool Watcher. Call a tool first whenever live data is "
+    "needed. If the answer is not in the data, say so."
 )
 
 # ---- OpenAI-style tool schemas (permission is enforced at execution, not here) ----

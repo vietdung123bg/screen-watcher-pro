@@ -54,6 +54,13 @@ def test_compose_prompt_has_scope_guardrail():
     assert "không liên quan" in p                     # off-topic guardrail present
 
 
+def test_compose_prompt_guides_app_problems_without_a_tool():
+    """For an app request with no tool, the prompt tells the model to GUIDE, not refuse."""
+    p = compose_prompt("Làm sao đổi mật khẩu?", "ctx")
+    assert "HƯỚNG DẪN" in p
+    assert "change-password" in p
+
+
 def test_out_of_scope_reply_is_english():
     """The refusal sentence is English in both engines and identical."""
     from app.ai import chat_agent
@@ -68,6 +75,18 @@ def test_sdk_system_prompt_has_scope_guardrail():
     assert "SCOPE" in sp                              # scope section present
     assert "OUT-OF-SCOPE" in sp                       # off-topic handling described
     assert "greet" in sp.lower()                      # greetings explicitly in-scope
+
+
+def test_sdk_system_prompt_guides_when_no_tool():
+    """App requests with no tool → the model GUIDES the user (support role), and the
+    old 'reply with the canned no-tool sentence' instruction is gone."""
+    from app.ai import chat_agent
+    sp = chat_agent.SYSTEM_PROMPT
+    assert "SUPPORT ROLE" in sp
+    assert "GUIDE" in sp
+    assert "change-password" in sp or "User Management" in sp
+    # The prompt must NOT force the canned no-tool sentence anymore (it now guides).
+    assert chat_agent.NO_TOOL_MESSAGE not in sp
 
 
 def test_compose_prompt_without_context():
