@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from app.ai.api_auth import is_admin
 from app.ai.models import (AIResponse, CONFIG_ERROR, PROVIDER_ERROR, RATE_LIMITED,
@@ -145,6 +146,17 @@ TOOLS = [
             "targets": {"type": "array", "items": {"type": "string", "enum": ["chrome", "edge"]},
                         "description": "Browsers to capture. Default both."},
             "launch": {"type": "boolean", "description": "Launch the browser if not open."}}},
+    }},
+    {"type": "function", "function": {
+        "name": "generate_mock_data",
+        "description": "Seed sample watcher executions into the DB for demo/testing so there is "
+                       "data to query (admin only). Each creates a screenshot + OCR + matched "
+                       "rule + notification. scenario: 'error' (ERROR/TIMEOUT → ops_team), "
+                       "'payment' (declined/chargeback/fraud → finance_team), 'healthy' (no match).",
+        "parameters": {"type": "object", "properties": {
+            "count": {"type": "integer", "description": "How many to create (1-5, default 1)."},
+            "scenario": {"type": "string", "enum": ["error", "payment", "healthy"],
+                         "description": "Kind of mock result (default 'error')."}}},
     }},
     {"type": "function", "function": {
         "name": "delete_execution",
@@ -419,16 +431,30 @@ class ChatAgent:
                                 "function": {"name": t["name"], "arguments": t["args"]}}
                                for t in ordered],
             })
+            # Parse + announce every tool call the model asked for in THIS step (the batch).
+            batch = []
             for t in ordered:
                 try:
                     args = json.loads(t["args"] or "{}")
                 except json.JSONDecodeError:
                     args = {}
+                batch.append((t, args))
                 logger.info("  TOOL CALL step=%d name=%s args=%s by user=%s",
                             step, t["name"],
                             _short(json.dumps(args, ensure_ascii=False), 300), user.username)
                 yield ("tool_call", {"name": t["name"], "arguments": args})
-                result = self._dispatch(user, t["name"], args)
+            # Request batching for efficiency: run the step's tool calls CONCURRENTLY
+            # (every DB access is guarded by db.lock, so this is thread-safe), then feed
+            # all results back in ONE follow-up LLM call instead of one round-trip per tool.
+            if len(batch) > 1:
+                with ThreadPoolExecutor(max_workers=min(len(batch), 8)) as ex:
+                    results = list(ex.map(
+                        lambda pa: self._dispatch(user, pa[0]["name"], pa[1]), batch))
+                logger.info("chat step %d: executed %d tool calls as a concurrent batch",
+                            step, len(batch))
+            else:
+                results = [self._dispatch(user, batch[0][0]["name"], batch[0][1])]
+            for (t, args), result in zip(batch, results):
                 logger.info("  TOOL RESULT name=%s -> %s", t["name"],
                             _short(json.dumps(result, ensure_ascii=False, default=str), 600))
                 yield ("tool_result", {"name": t["name"], "result": result})
@@ -514,6 +540,18 @@ class ChatAgent:
             return {"error": "Capture is not available in this context."}
         targets = targets or ["chrome", "edge"]
         return {"results": self.capture_fn(user.id, targets, bool(launch))}
+
+    def _t_generate_mock_data(self, user, count=1, scenario="error", **_):
+        if not is_admin(user):
+            return _deny(user, "generate mock data")
+        from app.services.mock_data import MOCK_SCENARIOS, generate_mock_data
+        scen = (scenario or "error").lower()
+        if scen not in MOCK_SCENARIOS:
+            return {"error": f"Unknown scenario '{scenario}'. "
+                             f"Use one of: {', '.join(MOCK_SCENARIOS)}."}
+        ids = generate_mock_data(self.repo, user.id, scen, count)
+        self.repo.add_audit(user.id, "mock.generate", f"scenario={scen} count={len(ids)}")
+        return {"created": len(ids), "scenario": scen, "execution_ids": ids}
 
     def _t_delete_execution(self, user, execution_id=None, **_):
         if not is_admin(user):

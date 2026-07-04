@@ -56,6 +56,14 @@ def build_context() -> AppContext:
     db = Database()
     db.init_schema()
     repo = Repository(db)
+
+    # First run only: seed a few mock watcher executions so a fresh DB already has
+    # data to show in History / the chatbot (no-op once any execution exists).
+    from app.services.mock_data import seed_first_run
+    admin = repo.get_user_by_username("admin")
+    if admin is not None:
+        seed_first_run(repo, admin["id"])
+
     notifier = NotificationService(repo, app_config)
     return AppContext(
         db=db,

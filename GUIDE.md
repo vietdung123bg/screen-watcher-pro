@@ -620,6 +620,7 @@ because there is no tool to support it."* ("admin" = role `admin` hoặc có quy
 | `create_user` | Tạo user mới + gán role | `username`, `password`, `role?`, `email?`… | ❌ | ✅ | `POST /api/admin/users` |
 | `delete_user` | Soft-delete user (không xóa admin) | `username` | ❌ | ✅ | `DELETE /api/admin/users/{id}` |
 | `delete_execution` | Soft-delete 1 execution | `execution_id` | ❌ | ✅ | `DELETE /api/watcher/executions/{id}` |
+| `generate_mock_data` | Seed execution mẫu (error/payment/healthy) để demo/test | `count` (1–5), `scenario` | ❌ | ✅ | — |
 
 ### 14.3. Danh sách endpoint
 

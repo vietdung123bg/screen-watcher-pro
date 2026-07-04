@@ -168,6 +168,24 @@ def test_chat_stream_yields_ordered_events(tmp_path, monkeypatch):
     assert [p for k, p in evs if k == "final"][-1] == "Latest result: none."
 
 
+def test_sdk_batches_multiple_tool_calls_in_one_step(tmp_path, monkeypatch):
+    """A step with 2 tool calls executes BOTH (concurrently) then continues in one
+    follow-up LLM call — request batching."""
+    scripts = [
+        [_chunk(tool_calls=[_tc(0, id="c1", name="get_latest_watcher_result", args="{}")]),
+         _chunk(tool_calls=[_tc(1, id="c2", name="get_alert_recipients", args="{}")])],
+        [_chunk(content="ok")],
+    ]
+    agent = _sdk_agent(tmp_path, monkeypatch, scripts)
+    events = []
+    r = agent.chat(_user(), "status?", session_id="s", on_event=lambda e: events.append(e))
+    assert r.ok and r.reply == "ok"
+    called = [p["name"] for k, p in events if k == "tool_call"]
+    results = [p["name"] for k, p in events if k == "tool_result"]
+    assert called == ["get_latest_watcher_result", "get_alert_recipients"]
+    assert len(results) == 2                       # both tools ran and returned
+
+
 def test_mock_chat_stream_emits_final(tmp_path, monkeypatch):
     """Mock mode still yields a usable stream (one delta + final) for SSE clients."""
     agent = _agent(tmp_path, engine="sdk", mock=True)

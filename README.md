@@ -513,22 +513,27 @@ Xem provider/model đang dùng: **`GET /api/chat/provider`** (hoặc nhãn trên
 
 Trợ lý AI được xây quanh 4 mục tiêu; dưới đây là cách mỗi mục tiêu được hiện thực trong code.
 
-**1) Tạo & dùng dữ liệu giả (mock data).** Đặt `ai.mock: true` trong `config/rules.yaml` → chatbot
-chạy **không cần LLM thật**, trả `[MOCK mode]…` (demo/CI không tốn key, không gọi mạng). Bộ
-**`test_pages/*.html`** là dashboard giả lập đời thực để sinh dữ liệu watcher cho chatbot đọc; test
-tự động dùng **fake client / fake OpenCode CLI**. Định nghĩa: `ProviderConfig.mock`, nhánh mock trong
-`ChatAgent._prepare()`.
+**1) Tạo & dùng dữ liệu giả (mock data).** Có 3 lớp:
+- **Sinh dữ liệu watcher giả**: tool **`generate_mock_data`** (admin) tạo các execution mẫu
+  (screenshot + OCR + rule khớp + notification) theo scenario `error`/`payment`/`healthy` — vd chat
+  *"tạo 2 mock data payment"*. Lần chạy **đầu tiên** (DB rỗng) app **tự seed** vài execution mẫu để
+  có sẵn dữ liệu (`app/services/mock_data.py`, gọi trong `run.py`).
+- **LLM giả**: `ai.mock: true` trong `config/rules.yaml` → chatbot chạy **không cần LLM thật**, trả
+  `[MOCK mode]…` (demo/CI không tốn key, không gọi mạng).
+- **Test** dùng fake client / fake OpenCode CLI; bộ **`test_pages/*.html`** là dashboard giả lập để
+  Capture & OCR sinh dữ liệu thật cho chatbot đọc.
 
 **2) Gọi hàm/tool (function calling).** LLM gọi tool theo **chuẩn OpenAI function-calling**
 (`tools=[…]`, `tool_choice="auto"`). Vòng lặp `ChatAgent._iter_turn()` đọc `tool_calls` (gom từng
 mảnh khi streaming), dispatch qua `_dispatch()`, trả kết quả JSON về model. **Mỗi tool tự kiểm quyền
 theo người hỏi** (xem bảng tool bên dưới).
 
-**3) Gộp request để hiệu quả (request batching).** Trong **một** bước, model có thể yêu cầu **nhiều
-tool cùng lúc** → `_iter_turn` **thực thi tất cả rồi gộp toàn bộ kết quả**, chỉ gọi LLM tiếp **một
-lần** (giảm số round-trip). Ngoài ra: chỉ nạp **N tin nhắn gần nhất** (`CONTEXT_MESSAGES=20`) + **cắt**
-watcher context ở `ai.max_context_chars` (mặc định 6000) để prompt gọn/ít token; **streaming**
-(`stream:true`) trả token dần giảm độ trễ cảm nhận; `MAX_TOOL_STEPS=6` chặn vòng lặp tốn kém.
+**3) Gộp request để hiệu quả (request batching).** Khi model yêu cầu **nhiều tool trong cùng một
+bước**, `_iter_turn` **chạy chúng SONG SONG** (`ThreadPoolExecutor` — an toàn vì mọi truy cập DB đều
+qua `db.lock`) rồi gộp toàn bộ kết quả vào **một** lần gọi LLM tiếp theo (thay vì mỗi tool một
+round-trip). Ngoài ra: chỉ nạp **N tin nhắn gần nhất** (`CONTEXT_MESSAGES=20`) + **cắt** watcher
+context ở `ai.max_context_chars` (mặc định 6000) để prompt gọn/ít token; **streaming** (`stream:true`)
+trả token dần giảm độ trễ cảm nhận; `MAX_TOOL_STEPS=6` chặn vòng lặp tốn kém.
 
 **4) Xử lý prompt hiệu quả (handle prompts).** `SYSTEM_PROMPT` được thiết kế kỹ: **kiểm soát phạm
 vi** (chỉ hỗ trợ app, từ chối off-topic bằng câu tiếng Anh cố định), vai trò **support/định hướng**
@@ -538,7 +543,7 @@ có kiểm soát; lỗi tool (permission) được relay verbatim.
 
 **Công cụ (tools) của chatbot** — LLM gọi tool để truy vấn/thao tác DB **theo đúng quyền người hỏi**:
 `get_my_profile`, `get_latest_watcher_result`, `get_alert_recipients`, `get_execution`, `trigger_capture` (mọi user); `list_users`,
-`get_user`, **`create_user`**, `delete_user`, `delete_execution` (**admin**). Ví dụ: admin nhắn *"create a user
+`get_user`, **`create_user`**, `delete_user`, `delete_execution`, **`generate_mock_data`** (**admin**). Ví dụ: admin nhắn *"create a user
 bob role operator"* / *"delete user bob"* → chatbot thực hiện; user thường → *"You are a viewer and do not
 have permission to delete a user account."*
 
@@ -571,6 +576,7 @@ Bảng tool ↔ quyền (định nghĩa trong `app/ai/chat_agent.py`; tool bị 
 | `create_user` | Tạo user mới + gán role | `username`, `password`, `role?`, `email?`… | ❌ | ✅ | `POST /api/admin/users` |
 | `delete_user` | Soft-delete user (không xóa admin) | `username` | ❌ | ✅ | `DELETE /api/admin/users/{id}` |
 | `delete_execution` | Soft-delete 1 execution | `execution_id` | ❌ | ✅ | `DELETE /api/watcher/executions/{id}` |
+| `generate_mock_data` | Seed execution mẫu (error/payment/healthy) để demo/test | `count` (1–5), `scenario` | ❌ | ✅ | — |
 
 ### Xác thực & phân quyền (JWT)
 
