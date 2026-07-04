@@ -497,8 +497,15 @@ Có cho **mọi tài khoản đăng nhập**. Chat trực tiếp trong app với
   liệu của mình; admin mới **tạo/liệt kê/xóa user, xóa execution**. Vượt quyền → AI báo
   *"You are a {role} and do not have permission to {thing}."* (vd *"You are a viewer and do not have
   permission to delete a user account."*).
-- Nhờ làm việc mà **chưa có tool nào hỗ trợ** (vd đổi mật khẩu — chưa add tool) → AI báo
+- Nhờ làm việc mà **chưa có tool nào hỗ trợ** → AI báo
   *"I cannot perform this action because there is no tool to support it."*
+- **Phạm vi (scope):** trợ lý **chỉ** hỗ trợ về app (watcher/OCR/rule/email/execution/tài khoản/
+  trạng thái) + chào hỏi cơ bản. Hỏi chủ đề ngoài app (nấu ăn, sửa xe, thể thao…) → từ chối một câu
+  **tiếng Anh**: *"This question is outside the scope of the Tool Watcher Assistant..."*. Trả lời theo
+  ngôn ngữ người hỏi; riêng câu từ chối luôn tiếng Anh.
+- **Chưa hỗ trợ qua chat (chưa có tool):** đổi mật khẩu, sửa hồ sơ, đổi role / bật–tắt user, sửa
+  rule/owner/email config, gửi/gửi lại email thủ công → đều trả thông báo "no tool"; làm trực tiếp
+  trong app desktop hoặc REST API.
 - **🆕 New chat** (góc trên) — bắt đầu phiên hội thoại mới.
 - **Panel Chat history (bên trái)** — liệt kê các phiên chat đã lưu. **Bấm vào một phiên để mở lại
   và tiếp tục chat** (nội dung cũ được nạp lại làm ngữ cảnh). Nút **⟳** để tải lại danh sách.

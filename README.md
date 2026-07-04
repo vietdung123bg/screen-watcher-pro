@@ -378,7 +378,7 @@ python run.py
    toàn bộ nội dung (tiêu đề, người nhận, lý do, body), hoặc bấm **✉ Resend**.
 6. Tab **👥 User Management** (admin).
 7. Tab **🚀 API Server** (admin): server REST API **tự khởi động cùng app** — không cần bấm Start. Bấm **■ Stop** để tắt; khi đã tắt nút **▶ Start** mới bật trở lại để chạy lại. Mở nhanh Swagger `/docs`. Server chạy tiến trình riêng, tự tắt khi thoát app.
-8. Tab **💬 Chatbot** (mọi user): trò chuyện với trợ lý AI ngay trong app. AI gọi tool truy vấn/thao tác DB **theo đúng quyền của bạn** (vd chỉ admin mới tạo/xóa user qua chat). Panel **Chat history** bên trái liệt kê các phiên đã lưu để **chọn và tiếp tục chat**; riêng **admin** thấy phiên của **mọi user** (kèm cột User) nhưng chỉ **tiếp tục được phiên của chính mình** — phiên của người khác mở ở chế độ **chỉ đọc** 🔒. Có nút **🆕 New chat** (bắt đầu phiên mới) và **hiển thị provider/model đang dùng** ở góc phải. Provider/model chọn ở `.chatbot.env`. Câu trả lời **stream theo token** (hiện dần), và trong lúc chờ có dòng trạng thái *⚙ using {tool}…* cho biết trợ lý đang gọi tool nào.
+8. Tab **💬 Chatbot** (mọi user): trò chuyện với trợ lý AI ngay trong app. AI gọi tool truy vấn/thao tác DB **theo đúng quyền của bạn** (vd chỉ admin mới tạo/xóa user qua chat). Panel **Chat history** bên trái liệt kê các phiên đã lưu để **chọn và tiếp tục chat**; riêng **admin** thấy phiên của **mọi user** (kèm cột User) nhưng chỉ **tiếp tục được phiên của chính mình** — phiên của người khác mở ở chế độ **chỉ đọc** 🔒. Có nút **🆕 New chat** (bắt đầu phiên mới) và **hiển thị provider/model đang dùng** ở góc phải. Provider/model chọn ở `.chatbot.env`. Câu trả lời **stream theo token** (hiện dần), và trong lúc chờ có dòng trạng thái *⚙ using {tool}…* cho biết trợ lý đang gọi tool nào. Trợ lý **chỉ hỗ trợ chủ đề về app** (hỏi ngoài phạm vi → từ chối bằng câu tiếng Anh cố định — xem §7.1).
 9. Tab **📓 Jupyter** (admin): **tự khởi động cùng app** — Jupyter server cho `notebooks/chatbox.ipynb` (client notebook gọi REST API) chạy ngay khi admin đăng nhập, app lấy URL kèm token từ log rồi **mở giao diện Jupyter trong cửa sổ WebView2 do app quản lý**. Nút **📓 Open in app** (mở lại), **🌐 Browser** (mở trình duyệt ngoài), **■ Stop** (đóng cả server lẫn cửa sổ; tự đóng khi thoát app). Cần `pip install notebook` + `pip install pywebview`; thiếu pywebview thì tự mở bằng trình duyệt, thiếu Jupyter thì tab báo rõ.
 
 > **Khởi động app = khởi động luôn API Server + Jupyter.** Với tài khoản admin, mở app (tab desktop) sẽ **tự bật cả REST API server lẫn Jupyter notebook** — không cần bấm Start thủ công.
@@ -462,11 +462,17 @@ Xem provider/model đang dùng: **`GET /api/chat/provider`** (hoặc nhãn trên
 `get_my_profile`, `get_latest_watcher_result`, `get_alert_recipients`, `get_execution`, `trigger_capture` (mọi user); `list_users`,
 `get_user`, **`create_user`**, `delete_user`, `delete_execution` (**admin**). Ví dụ: admin nhắn *"create a user
 bob role operator"* / *"delete user bob"* → chatbot thực hiện; user thường → *"You are a viewer and do not
-have permission to delete a user account."* Mọi lần chat + từng tool call (tên, tham số, kết quả) đều được **ghi log** (`logs/`).
+have permission to delete a user account."*
+
+**Streaming & log:** câu trả lời **stream theo token** (cả tab Chatbot lẫn API khi `stream:true`). Mỗi lượt chat được **ghi log chi tiết** vào `logs/app_<YYYYMMDD>.log` (dùng chung cho **cả desktop lẫn API server**): `chat START` (user/role/session/provider/model), câu hỏi, **thinking** của model, **từng tool call** (tên + tham số) + **kết quả tool**, và `chat REPLY` kèm latency. Khi chạy bằng `run.cmd`, output còn được tee ra `logs/run_<mode>_<timestamp>.log`.
+
+**Phạm vi hỗ trợ (scope control):** trợ lý **chỉ** hỗ trợ vận hành Tool Watcher — kết quả watcher, OCR, rule, email/alert, execution, tài khoản, trạng thái hệ thống — **cộng chào hỏi & hỗ trợ cơ bản** về app. Hỏi chủ đề **ngoài app** (nấu ăn, sửa xe, thể thao, thời tiết, kiến thức chung…) → từ chối bằng đúng một câu **tiếng Anh**: *"This question is outside the scope of the Tool Watcher Assistant. Please ask about watcher results, OCR, rules, or system status."* Trả lời theo đúng ngôn ngữ người hỏi (Việt/Anh), riêng câu từ chối luôn tiếng Anh.
 
 **Hai loại thông báo từ chối** (đều bằng tiếng Anh):
 - **Sai quyền** — người dùng nhờ làm việc mà tool có nhưng role không đủ quyền → *"You are a {role} and do not have permission to {thing}."* (ví dụ user thường xóa tài khoản → *"You are a viewer and do not have permission to delete a user account."*).
-- **Chưa có tool** — nhờ làm việc mà **chưa có tool nào hỗ trợ** (ví dụ đổi mật khẩu — chưa add tool) → *"I cannot perform this action because there is no tool to support it."*
+- **Chưa có tool** — nhờ làm việc mà **chưa có tool nào hỗ trợ** → *"I cannot perform this action because there is no tool to support it."*
+
+**Chưa hỗ trợ qua chat (chưa có tool → trả về thông báo "no tool" ở trên):** đổi mật khẩu, sửa hồ sơ (email/tên/điện thoại), đổi role / bật–tắt user, sửa rule / owner / cấu hình email, gửi hoặc gửi lại email thủ công. Những việc này hiện làm trực tiếp trong **app desktop** (tab tương ứng) hoặc **REST API** — có thể bổ sung thành tool sau.
 
 Bảng tool ↔ quyền (định nghĩa trong `app/ai/chat_agent.py`; tool bị chặn do sai quyền → chatbot báo *"You are a {role} and do not have permission to {thing}."*; "admin" = role `admin` hoặc có quyền `user.manage`):
 
