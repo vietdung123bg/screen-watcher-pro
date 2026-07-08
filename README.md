@@ -17,6 +17,13 @@ Pain point được giải quyết (theo tài liệu): **P01** (thông tin chỉ
 **P02** (kiểm tra thủ công), **P03** (không có cảnh báo tự động), **P04** (không có
 bằng chứng kiểm tra).
 
+Tài liệu thiết kế đi kèm:
+
+- [`pdg.md`](pdg.md): Product Design Guidelines cho Rule Engine, gồm event model, rule model,
+  thứ tự evaluation, severity, suppression, deduplication, explainability, lifecycle và roadmap.
+- [`bpd.md`](bpd.md): Business Process Design cho vận hành Rule Engine, gồm intake, review,
+  testing, approval, publishing, monitoring, tuning, retirement, governance, KPI và audit trail.
+
 > 📘 **Hướng dẫn sử dụng giao diện chi tiết** (giới thiệu từng tab, chức năng Chụp/OCR,
 > quản lý người dùng, email, history, cách sửa config): xem [GUIDE.md](GUIDE.md).
 >
@@ -63,6 +70,51 @@ bằng chứng kiểm tra).
 | `regex` | `pattern` khớp bất kỳ đâu |
 | `all_keywords` | có ĐỦ tất cả `keywords` |
 | `any_keywords` | có ÍT NHẤT MỘT `keywords` |
+
+### Định hướng Rule Engine theo PDG/BPD
+
+Rule Engine không chỉ là bước match text sau OCR. Theo [`pdg.md`](pdg.md) và [`bpd.md`](bpd.md),
+đây là capability chuyển tín hiệu quan sát được thành quyết định vận hành có thể tin cậy:
+
+```text
+Event → Normalization → Rule Evaluation → Suppression → Deduplication
+      → Correlation → Alert Decision → Evidence
+```
+
+Nguyên tắc thiết kế:
+
+- **Explainable**: mỗi alert phải trả lời được rule nào match, điều kiện nào match/không match,
+  priority nào thắng, có suppression/dedup hay không.
+- **Testable**: mỗi rule cần positive, negative, boundary, conflict, dedup, suppression và regression test.
+- **Versioned & rollback capable**: mọi thay đổi rule tạo version mới và có đường quay lại.
+- **Auditable**: active rule cần owner, approval, test evidence, change history và execution trace.
+- **Observable**: theo dõi hit rate, false positive/negative, evaluation time, noisy rules và disabled rules.
+
+Hiện tại app đã có rule YAML, owner group, cooldown/dedup đơn giản theo `rule_id`, email decision trace,
+DB lưu `rule_evaluations`/`notifications` và giao diện giải thích. Các phần lifecycle đầy đủ
+(`Draft → Testing → Approved → Active → Deprecated → Disabled`), approval workflow, rule version history,
+simulator, dry run theo rule, rule diff, impact preview và KPI dashboard là định hướng phát triển theo BPD/PDG.
+
+### Quy trình quản trị rule khuyến nghị
+
+Luồng nghiệp vụ chuẩn cho rule mới hoặc thay đổi rule:
+
+```text
+Submit request → Qualify → Design → Review → Test → Approve
+→ Publish → Monitor → Tune hoặc Retire
+```
+
+Một rule production nên có tối thiểu:
+
+- `ruleId`, tên, mô tả nghiệp vụ, owner và target screen/system.
+- Scope rõ ràng như environment, service, tenant hoặc region.
+- Condition ưu tiên structured field; nếu dùng OCR text thì cần confidence threshold khi có dữ liệu.
+- Severity theo tác động nghiệp vụ: `Info`, `Warning`, `Minor`, `Major`, `Critical`.
+- Alert type như `Availability`, `Performance`, `Capacity`, `Security`, `Data`, `Job Failure`,
+  `Integration`, `Configuration`, `Compliance`.
+- Dedup key, cooldown, suppression policy và rollback plan.
+- Evidence gồm OCR text, screenshot, matched fields/terms và lý do quyết định.
+- Test evidence trước khi active, đặc biệt với rule `Major`/`Critical`.
 
 ### Cooldown & Email (Business Rule trong tài liệu)
 - **BR03**: rule khớp + có owner + hết cooldown → gửi email.
