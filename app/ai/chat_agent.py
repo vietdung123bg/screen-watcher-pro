@@ -76,7 +76,9 @@ SYSTEM_PROMPT = (
     "on these; for a greeting, greet back and briefly offer what you can do.\n"
     "Questions about the current status, issues, errors, alerts or operational health of "
     "'the system' / 'hệ thống' refer to Tool Watcher and ARE in scope — answer them from "
-    "the watcher context and tools.\n"
+    "the watcher context and tools. The app has issue memory: matched events are compared "
+    "against a local vectorstore so you can say whether the latest event is a new_issue or "
+    "a known_issue when that data is available.\n"
     "IN-SCOPE examples (always answer): 'Hi' / 'Chào bạn', 'Bạn là ai?', 'Bạn giúp được gì?', "
     "'Issue hiện tại của hệ thống đang là gì?', 'Đánh giá hiện trạng vận hành', "
     "'Trạng thái watcher gần nhất?', 'Rule nào đang match?', 'What is the latest result?'.\n"
@@ -131,6 +133,14 @@ TOOLS = [
                        "this for questions like 'which email receives alerts?' / "
                        "'email nhận alert là email nào?'.",
         "parameters": {"type": "object", "properties": {}},
+    }},
+    {"type": "function", "function": {
+        "name": "get_known_issues",
+        "description": "List recent issue-memory records from the local vectorstore. Use this "
+                       "when the user asks whether an event is a new issue or an old/known "
+                       "issue, or asks to list known issues.",
+        "parameters": {"type": "object", "properties": {
+            "limit": {"type": "integer", "description": "Max issues to return (default 10)."}}},
     }},
     {"type": "function", "function": {
         "name": "get_execution",
@@ -514,6 +524,7 @@ class ChatAgent:
         rules = [{"rule": r.get("name") or r.get("id"),
                   "severity": r.get("severity"),
                   "owner_group": r.get("owner_group"),
+                  "metadata": r.get("metadata") if isinstance(r.get("metadata"), dict) else {},
                   "recipients": groups.get(r.get("owner_group"), [])}
                  for r in (cfg.get("rules") or [])]
         all_emails = sorted({e for lst in groups.values() for e in lst})
@@ -524,6 +535,23 @@ class ChatAgent:
             "rules": rules,
             "all_recipient_emails": all_emails,
         }
+
+    def _t_get_known_issues(self, user, limit=10, **_):
+        rows = self.repo.list_recent_issues(limit=min(max(int(limit or 10), 1), 50))
+        issues = []
+        for r in rows:
+            item = dict(r)
+            item["event_status"] = (
+                "known_issue" if int(item.get("occurrence_count") or 0) > 1 else "new_issue"
+            )
+            for key in ("vector_json",):
+                item.pop(key, None)
+            try:
+                item["metadata"] = json.loads(item.pop("metadata_json") or "{}")
+            except json.JSONDecodeError:
+                item["metadata"] = {}
+            issues.append(item)
+        return {"issues": issues}
 
     def _t_get_execution(self, user, execution_id=None, **_):
         if not execution_id:

@@ -58,6 +58,11 @@ Tài liệu thiết kế đi kèm:
   (bỏ qua cooldown). Chạy được cả khi gửi thật lẫn DRY-RUN; chỉ hiện với tài khoản có quyền `capture.run`.
 - **Bảng giải thích chi tiết** ("Vì sao gửi / KHÔNG gửi email"):
   với mỗi rule ghi rõ *có khớp không → vì sao → hành động (gửi/cooldown/...) → vì sao → người nhận*.
+- **Issue memory bằng vectorstore local**: mỗi event match rule được so với kho issue cũ trong SQLite
+  để tự phân loại `new_issue` / `known_issue`; chatbot có thể trả lời “case này là mới hay giống issue cũ”.
+- **Cảnh báo âm thanh/TTS tùy chọn**: khi phát hiện lỗi nghiêm trọng, app có thể gọi runner TTS local
+  cho model Hugging Face `pnnbao-ump/VieNeu-TTS-0.3B-q4-gguf` để phát câu
+  `"anh ơi hệ thống chết toi rồi"`; nếu chưa cấu hình runner thì có fallback beep.
 - Chạy **nền không treo UI** (thread + progress bar + nhật ký).
 
 ### Rule Engine (đọc `config/rules.yaml`)
@@ -179,7 +184,9 @@ screen-watcher-pro/
 │   ├── services/
 │   │   ├── auth.py                 # đăng nhập, đổi mật khẩu, hash (PBKDF2), quyền
 │   │   ├── email_service.py        # gửi SMTP (kèm ảnh) + chế độ DRY-RUN
+│   │   ├── issue_vectorstore.py    # issue memory: new_issue/known_issue bằng vectorstore SQLite
 │   │   ├── notification_service.py # ★ rule→cooldown→email + "decision trace"
+│   │   ├── voice_alert_service.py  # cảnh báo âm thanh/TTS optional qua Hugging Face GGUF runner
 │   │   └── capture_service.py      # điều phối toàn pipeline
 │   └── ui/                         # Tkinter (không cần lib GUI ngoài)
 │       ├── login_window.py
@@ -212,6 +219,7 @@ users ──< capture_sessions ──< screenshots ──1:1── ocr_results
   │                                  └──< notifications      (quyết định gửi/không)
   └──< audit_logs
 cooldown_state   (theo rule_id — chống gửi lặp)
+issue_vectors    (vectorstore local — nhớ issue cũ/mới)
 ```
 
 | Bảng | Vai trò | Cột chính |
@@ -224,6 +232,7 @@ cooldown_state   (theo rule_id — chống gửi lặp)
 | `rule_evaluations` | Kết quả từng rule trên 1 ảnh | `rule_id, matched, severity, owner_group, reason, matched_terms` |
 | `notifications` | Quyết định gửi cho rule khớp + nội dung email | `rule_id, recipients, status, reason, subject, body` |
 | `cooldown_state` | Lần gửi gần nhất theo rule | `rule_id, owner_group, last_sent_at` |
+| `issue_vectors` | Kho issue memory local để phân biệt issue mới/cũ | `title, summary, rule_id, severity, occurrence_count, vector_json, metadata_json` |
 | `audit_logs` | Nhật ký hành động | `user_id, action, detail` |
 | `chat_sessions` | Phiên hội thoại chatbot theo user | `id, user_id, title, message_count (denormalized), created_at, updated_at, last_message_at, metadata (JSON), deleted_at` |
 | `chat_messages` | Tin nhắn (chỉ user + assistant cuối) | `id, session_id, user_id, role, content, error_code, metadata (JSON: model/provider/latency), created_at` |
@@ -285,6 +294,12 @@ rules:
     severity: high
     owner_group: ops_team
     cooldown_minutes: 15
+    metadata:
+      category: operations
+      alert_type: Availability
+      target_screen: Browser monitored page
+      runbook: RUNBOOK-ERROR-DETECTED
+      tags: ["ocr", "error", "timeout"]
 
 owners:
   ops_team:
@@ -292,7 +307,7 @@ owners:
 
 email:
   enabled: true                          # true = gửi THẬT; false = DRY-RUN (mô phỏng)
-  provider: custom                       # dùng Brevo làm SMTP relay (xem mục 5.1)
+  provider: custom                       # dùng Brevo làm SMTP relay (xem mục 5.2)
   smtp_host: smtp-relay.brevo.com
   smtp_port: 587
   use_tls: true
@@ -302,6 +317,23 @@ email:
 
 cooldown:
   default_minutes: 15
+
+issues:
+  enabled: true
+  similarity_threshold: 0.78
+  vector_dimensions: 256
+
+tts:
+  enabled: false
+  provider: huggingface_gguf
+  model_id: pnnbao-ump/VieNeu-TTS-0.3B-q4-gguf
+  model_path: ""                       # hoặc env VIENEU_TTS_MODEL_PATH
+  command: []                          # vd ["your-tts-runner", "--model", "{model_path}", "--text", "{text}"]
+  alert_text: "anh ơi hệ thống chết toi rồi"
+  trigger_on: new_issue                # new_issue | known_issue | every_match
+  severities: ["high", "critical", "major"]
+  fallback_beep: true
+  timeout_seconds: 20
 ```
 
 **Phân biệt quan trọng — người GỬI vs người NHẬN:**
@@ -322,11 +354,43 @@ cooldown:
 | `outlook-personal` | smtp-mail.outlook.com:587 | `@outlook.com` / `@hotmail.com` |
 | `custom` | tự khai `smtp_host`/`smtp_port`/`use_tls` | dịch vụ relay như **Brevo / SendGrid** |
 
-> 💡 Tài khoản công ty như `@company.com` (Microsoft 365) **thường bị admin tắt SMTP AUTH** → không gửi trực tiếp được. Giải pháp: dùng dịch vụ relay **Brevo** (mục 5.1) làm SMTP server, gửi *tới* `@company.com`.
+> 💡 Tài khoản công ty như `@company.com` (Microsoft 365) **thường bị admin tắt SMTP AUTH** → không gửi trực tiếp được. Giải pháp: dùng dịch vụ relay **Brevo** (mục 5.2) làm SMTP server, gửi *tới* `@company.com`.
 
 ---
 
-## 5.1. Tạo SMTP với Brevo để gửi mail (khuyến nghị)
+### 5.1. Issue memory & cảnh báo giọng nói
+
+**Issue memory (`issues`)** dùng vectorstore local trong SQLite, không cần dịch vụ ngoài:
+
+- Khi một rule match, app tạo event signature từ rule id/name, severity, owner, match reason,
+  window title, OCR snippet và metadata của rule.
+- Signature được vector hóa bằng hashing vector và so cosine similarity với `issue_vectors`.
+- Nếu similarity `>= issues.similarity_threshold`, event được xem là `known_issue` và tăng
+  `occurrence_count`; nếu thấp hơn, app tạo row mới và đánh dấu `new_issue`.
+- Chatbot đọc được dữ liệu này qua watcher context và tool `get_known_issues`, nên có thể trả lời:
+  “event này là issue mới” hoặc “giống issue cũ X, đã gặp N lần”.
+
+**Cảnh báo giọng nói (`tts`)** là optional:
+
+- `model_id` mặc định: `pnnbao-ump/VieNeu-TTS-0.3B-q4-gguf`.
+- App không tự tải model; hãy tải/chạy model bằng runner local của bạn rồi đặt `tts.command`.
+- `tts.command` nhận placeholder `{text}`, `{model_id}`, `{model_path}`.
+- Khi `tts.enabled: true`, rule match severity trong `tts.severities` sẽ phát câu
+  `tts.alert_text` theo `tts.trigger_on`.
+- Nếu chưa có runner nhưng `fallback_beep: true`, app beep thay vì crash pipeline.
+
+Ví dụ command khi đã có runner local:
+
+```yaml
+tts:
+  enabled: true
+  model_path: "D:/models/VieNeu-TTS-0.3B-q4.gguf"
+  command: ["your-tts-runner", "--model", "{model_path}", "--text", "{text}"]
+```
+
+---
+
+## 5.2. Tạo SMTP với Brevo để gửi mail (khuyến nghị)
 
 Brevo (free ~300 email/ngày, không cần thẻ) đóng vai trò **SMTP server** lo sẵn deliverability. Quy trình:
 
@@ -383,7 +447,7 @@ WATCHER_SMTP_PASSWORD=<SMTP key ở Bước 3>
 
 ---
 
-## 5.2. Tạo SMTP server với Gmail để gửi mail
+## 5.3. Tạo SMTP server với Gmail để gửi mail
 
 Muốn gửi thẳng bằng **tài khoản Gmail** (không qua Brevo) thì Gmail đóng vai trò **SMTP server**.
 Bắt buộc dùng **App Password** — Gmail chặn mật khẩu đăng nhập thường khi gửi qua SMTP.
@@ -425,7 +489,7 @@ Log báo *EMAIL SENT … via smtp.gmail.com:587* là thành công.
 - **`from` phải TRÙNG `username`** — Gmail chỉ gửi dưới danh nghĩa tài khoản đã xác thực; đặt khác → `Sender refused`.
 - Dùng **App Password 16 ký tự**, KHÔNG dùng mật khẩu đăng nhập (sẽ `535 Authentication failed`).
 - Giới hạn ~**500 email/ngày** — đủ cho demo/test.
-- Gửi từ Gmail (freemail) tới hộp thư **doanh nghiệp** (vd `@company.com`, `@fpt.com`) dễ rơi vào **Spam/Quarantine** hoặc bị chặn → kiểm tra Spam người nhận; muốn tin cậy hơn dùng **domain riêng có SPF/DKIM** hoặc relay Brevo ([§5.1](#51-tạo-smtp-với-brevo-để-gửi-mail-khuyến-nghị)).
+- Gửi từ Gmail (freemail) tới hộp thư **doanh nghiệp** (vd `@company.com`, `@fpt.com`) dễ rơi vào **Spam/Quarantine** hoặc bị chặn → kiểm tra Spam người nhận; muốn tin cậy hơn dùng **domain riêng có SPF/DKIM** hoặc relay Brevo ([§5.2](#52-tạo-smtp-với-brevo-để-gửi-mail-khuyến-nghị)).
 - Lỗi `Your SMTP account is not yet activated…` là của **Brevo**, KHÔNG phải Gmail — thấy lỗi này nghĩa là config vẫn đang trỏ `smtp-relay.brevo.com`, hãy đổi sang preset `gmail` như trên.
 
 Sửa YAML/`.env` xong nhớ **khởi động lại app**.
@@ -656,6 +720,7 @@ Bảng tool ↔ quyền (định nghĩa trong `app/ai/chat_agent.py`; tool bị 
 | `get_my_profile` | Hồ sơ của chính mình | — | ✅ | ✅ | `GET /api/user/profile` |
 | `get_latest_watcher_result` | KQ watcher mới nhất (user: của mình; admin: tất cả) | — | ✅ | ✅ | `GET /api/watcher/executions/latest` |
 | `get_alert_recipients` | Email nhận alert: owner group + email, rule→group, email bật/tắt (đọc từ `config/rules.yaml`) | — | ✅ | ✅ | — |
+| `get_known_issues` | Liệt kê issue memory từ vectorstore để biết event là `new_issue` hay `known_issue` | `limit` | ✅ | ✅ | — |
 | `get_execution` | Xem 1 execution (user: chỉ của mình; admin: bất kỳ) | `execution_id` | ✅ | ✅ | `GET /api/watcher/executions/{id}` |
 | `trigger_capture` | Chụp + OCR + rule | `targets`, `launch` | ✅ | ✅ | `POST /api/watcher/executions` |
 | `list_users` | Liệt kê tất cả user | — | ❌ | ✅ | `GET /api/admin/users` |

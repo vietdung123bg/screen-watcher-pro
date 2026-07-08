@@ -28,6 +28,7 @@ class RuleEvaluation:
     owner_group: str = ""
     cooldown_minutes: int = 15
     matched_terms: list[str] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
 
 
 def _norm(text: str, ignore_case: bool) -> str:
@@ -42,6 +43,9 @@ def evaluate_rule(rule: dict, text: str) -> RuleEvaluation:
     severity = rule.get("severity", "medium")
     owner_group = rule.get("owner_group", "")
     cooldown = int(rule.get("cooldown_minutes", 15))
+    metadata = rule.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        metadata = {}
     hay = _norm(text, ignore_case)
 
     matched = False
@@ -76,7 +80,8 @@ def evaluate_rule(rule: dict, text: str) -> RuleEvaluation:
             m = re.search(pattern, text, flags)
         except re.error as e:
             return RuleEvaluation(rid, name, rtype, False,
-                                  f"Invalid regex: {e}", severity, owner_group, cooldown)
+                                  f"Invalid regex: {e}", severity, owner_group, cooldown,
+                                  metadata=metadata)
         matched = m is not None
         if matched:
             matched_terms = [m.group(0)]
@@ -110,7 +115,7 @@ def evaluate_rule(rule: dict, text: str) -> RuleEvaluation:
         reason = f"Unsupported rule type: '{rtype}'."
 
     return RuleEvaluation(rid, name, rtype, matched, reason, severity,
-                          owner_group, cooldown, matched_terms)
+                          owner_group, cooldown, matched_terms, metadata)
 
 
 def evaluate_all(rules: list[dict], text: str) -> list[RuleEvaluation]:

@@ -15,6 +15,12 @@ rules:
     severity: high
     owner_group: ops_team
     cooldown_minutes: 15
+    metadata:
+      category: operations
+      alert_type: Availability
+      target_screen: Browser monitored page
+      runbook: RUNBOOK-ERROR-DETECTED
+      tags: ["ocr", "error", "timeout"]
 
   - id: daily_sync_failed
     name: "Daily Sync failed"
@@ -24,6 +30,12 @@ rules:
     severity: medium
     owner_group: ops_team
     cooldown_minutes: 30
+    metadata:
+      category: batch
+      alert_type: Job Failure
+      target_screen: Daily sync dashboard
+      runbook: RUNBOOK-DAILY-SYNC
+      tags: ["ocr", "batch", "sync"]
 
   - id: payment_keywords
     name: "Payment / fraud alert"
@@ -33,6 +45,12 @@ rules:
     severity: high
     owner_group: finance_team
     cooldown_minutes: 20
+    metadata:
+      category: finance
+      alert_type: Security
+      target_screen: Payment monitoring page
+      runbook: RUNBOOK-PAYMENT-FRAUD
+      tags: ["ocr", "payment", "fraud"]
 
 # ---- Owner groups & recipient emails (NOT verified in Brevo, change freely) ----
 owners:
@@ -45,7 +63,7 @@ owners:
 
 # ---- Email (SMTP) configuration ----
 # enabled: false -> DRY-RUN (simulate only, safe default). true -> send for real.
-# See README section 5.1 for setting up Brevo as the SMTP relay.
+# See README section 5.2 for setting up Brevo as the SMTP relay.
 email:
   enabled: false
   provider: custom                       # gmail | outlook | office365 | custom (Brevo/SendGrid)
@@ -88,3 +106,26 @@ server:
 cooldown:
   default_minutes: 15
   enabled: false
+
+# ---- Issue memory vectorstore ----
+# enabled: true -> every matched rule is compared with known issues. If similarity
+# >= threshold, the event is treated as known_issue; otherwise a new issue is stored.
+issues:
+  enabled: true
+  similarity_threshold: 0.78
+  vector_dimensions: 256
+
+# ---- Audible alert / Vietnamese TTS ----
+# The default model id is a Hugging Face GGUF model. Set command when you have a
+# local runner installed; placeholders: {text}, {model_id}, {model_path}.
+tts:
+  enabled: false
+  provider: huggingface_gguf
+  model_id: pnnbao-ump/VieNeu-TTS-0.3B-q4-gguf
+  model_path: ""                       # or set env VIENEU_TTS_MODEL_PATH
+  command: []                          # example: ["your-tts-runner", "--model", "{model_path}", "--text", "{text}"]
+  alert_text: "anh ơi hệ thống chết toi rồi"
+  trigger_on: new_issue                # new_issue | known_issue | every_match
+  severities: ["high", "critical", "major"]
+  fallback_beep: true
+  timeout_seconds: 20
