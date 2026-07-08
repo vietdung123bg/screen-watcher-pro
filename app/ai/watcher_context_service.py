@@ -37,6 +37,7 @@ class WatcherContext:
     ocr_text: str = ""
     matched_rules: list[dict] = field(default_factory=list)
     notifications: list[dict] = field(default_factory=list)
+    issue_memory: list[dict] = field(default_factory=list)
 
     def to_dict(self, include_audit: bool = False) -> dict:
         """JSON-serializable view for the watcher HTTP endpoints (FR07 / audit).
@@ -55,6 +56,7 @@ class WatcherContext:
             "ocr_text": self.ocr_text,
             "matched_rules": self.matched_rules,
             "notifications": self.notifications,
+            "issue_memory": self.issue_memory,
         }
         if include_audit:
             data["file_path"] = self.file_path
@@ -78,6 +80,13 @@ class WatcherContext:
         if self.notifications:
             notes = ", ".join(f"{n['rule_id']}={n['status']}" for n in self.notifications)
             lines.append(f"Email decisions: {notes}")
+        if self.issue_memory:
+            issues = ", ".join(
+                f"{i.get('event_status', i.get('status'))}:{i['title']} "
+                f"(seen {i['occurrence_count']}x)"
+                for i in self.issue_memory
+            )
+            lines.append(f"Issue memory: {issues}")
         lines.append("OCR text:")
         lines.append(self.ocr_text or "(empty)")
         return "\n".join(lines)
@@ -169,6 +178,20 @@ class WatcherContextService:
             "FROM notifications WHERE screenshot_id = ? ORDER BY id",
             (sid,),
         ).fetchall()
+        issue_rows = conn.execute(
+            "SELECT id, title, summary, rule_id, severity, owner_group, status, "
+            "first_seen_at, last_seen_at, occurrence_count "
+            "FROM issue_vectors WHERE last_screenshot_id = ? ORDER BY last_seen_at DESC",
+            (sid,),
+        ).fetchall()
+
+        issues = []
+        for row in issue_rows:
+            item = dict(row)
+            item["event_status"] = (
+                "known_issue" if int(item.get("occurrence_count") or 0) > 1 else "new_issue"
+            )
+            issues.append(item)
 
         return WatcherContext(
             has_data=True,
@@ -182,4 +205,5 @@ class WatcherContextService:
             ocr_text=ocr_text,
             matched_rules=[dict(r) for r in rule_rows],
             notifications=[dict(r) for r in notif_rows],
+            issue_memory=issues,
         )

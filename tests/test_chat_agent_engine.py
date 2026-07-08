@@ -205,6 +205,9 @@ def test_get_alert_recipients_reads_config(tmp_path, monkeypatch):
         "    name: Err\n"
         "    owner_group: ops\n"
         "    severity: high\n"
+        "    metadata:\n"
+        "      alert_type: Availability\n"
+        "      runbook: RUNBOOK-ERR\n"
         "owners:\n"
         "  ops:\n"
         "    emails: [ops@example.com, oncall@example.com]\n"
@@ -222,4 +225,8 @@ def test_get_alert_recipients_reads_config(tmp_path, monkeypatch):
     assert out["owner_groups"]["ops"] == ["ops@example.com", "oncall@example.com"]
     assert out["all_recipient_emails"] == ["oncall@example.com", "ops@example.com"]
     assert out["rules"][0]["owner_group"] == "ops"
+    assert out["rules"][0]["metadata"] == {
+        "alert_type": "Availability",
+        "runbook": "RUNBOOK-ERR",
+    }
     assert out["rules"][0]["recipients"] == ["ops@example.com", "oncall@example.com"]

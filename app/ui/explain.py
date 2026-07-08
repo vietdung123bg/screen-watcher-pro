@@ -34,6 +34,13 @@ def _render(summary: str, items: list[dict]) -> str:
         recipients = it.get("recipients") or []
         if recipients:
             lines.append(f"   3) Recipients: {', '.join(recipients)}")
+        issue = it.get("issue_memory") or {}
+        if issue and issue.get("status") in ("new_issue", "known_issue"):
+            label = "NEW issue" if issue["status"] == "new_issue" else "KNOWN issue"
+            lines.append(
+                f"   4) Issue memory: {label} "
+                f"(similarity={issue.get('similarity', 0)}, seen={issue.get('occurrence_count', 0)}x)"
+            )
     return "\n".join(lines)
 
 
@@ -45,7 +52,8 @@ def from_outcome(outcome) -> str:
         dict(rule_name=d.rule_name, rule_type=d.rule_type, matched=d.matched,
              severity=d.severity, owner_group=d.owner_group,
              match_reason=d.match_reason, action=d.action,
-             action_reason=d.action_reason, recipients=d.recipients)
+             action_reason=d.action_reason, recipients=d.recipients,
+             issue_memory=d.issue_memory)
         for d in outcome.decisions
     ]
     return _render(outcome.summary, items)

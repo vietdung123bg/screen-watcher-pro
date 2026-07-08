@@ -152,6 +152,28 @@ CREATE TABLE IF NOT EXISTS cooldown_state (
     last_sent_at  TEXT NOT NULL
 );
 
+-- Local vectorstore for issue memory. Each row represents a known operational issue
+-- signature derived from matched rule + OCR context. vector_json is a normalized sparse
+-- hashing vector, kept as JSON so the app has no external vector DB dependency.
+CREATE TABLE IF NOT EXISTS issue_vectors (
+    id                 TEXT PRIMARY KEY,
+    title              TEXT NOT NULL,
+    summary            TEXT,
+    rule_id            TEXT,
+    severity           TEXT,
+    owner_group        TEXT,
+    status             TEXT NOT NULL DEFAULT 'open',
+    first_seen_at      TEXT NOT NULL,
+    last_seen_at       TEXT NOT NULL,
+    last_screenshot_id TEXT REFERENCES screenshots(id) ON DELETE SET NULL,
+    occurrence_count   INTEGER NOT NULL DEFAULT 1,
+    vector_json        TEXT NOT NULL,
+    metadata_json      TEXT
+);
+
+CREATE INDEX IF NOT EXISTS ix_issue_vectors_last_seen ON issue_vectors(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS ix_issue_vectors_rule ON issue_vectors(rule_id, status);
+
 -- Chatbot conversations, per user. Optimized for heavy writes:
 --   * only the user message + final assistant reply are stored (no tool/system chatter),
 --   * message_count / last_message_at are denormalized so listing sessions never scans messages,

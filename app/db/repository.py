@@ -365,3 +365,41 @@ class Repository:
             "last_sent_at=excluded.last_sent_at",
             (rule_id, owner_group, when.isoformat(timespec="seconds")),
         )
+
+    # ---------- issue vectorstore ----------
+    def create_issue_vector(self, title: str, summary: str, rule_id: str,
+                            severity: str, owner_group: str, screenshot_id: str,
+                            vector_json: str, metadata: dict | None = None) -> str:
+        issue_id = uuid7()
+        now = _now()
+        self._exec(
+            "INSERT INTO issue_vectors(id, title, summary, rule_id, severity, owner_group, "
+            "status, first_seen_at, last_seen_at, last_screenshot_id, occurrence_count, "
+            "vector_json, metadata_json) VALUES(?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, 1, ?, ?)",
+            (issue_id, title, summary, rule_id, severity, owner_group, now, now,
+             screenshot_id, vector_json, json.dumps(metadata or {}, ensure_ascii=False)),
+        )
+        return issue_id
+
+    def list_issue_vectors(self, status: str | None = "open") -> list[sqlite3.Row]:
+        sql = "SELECT * FROM issue_vectors "
+        params: tuple = ()
+        if status:
+            sql += "WHERE status = ? "
+            params = (status,)
+        sql += "ORDER BY last_seen_at DESC"
+        return self._query(sql, params)
+
+    def touch_issue_vector(self, issue_id: str, screenshot_id: str,
+                           metadata: dict | None = None) -> None:
+        self._exec(
+            "UPDATE issue_vectors SET last_seen_at = ?, last_screenshot_id = ?, "
+            "occurrence_count = occurrence_count + 1, metadata_json = ? WHERE id = ?",
+            (_now(), screenshot_id, json.dumps(metadata or {}, ensure_ascii=False), issue_id),
+        )
+
+    def list_recent_issues(self, limit: int = 10) -> list[sqlite3.Row]:
+        return self._query(
+            "SELECT * FROM issue_vectors ORDER BY last_seen_at DESC LIMIT ?",
+            (int(limit),),
+        )

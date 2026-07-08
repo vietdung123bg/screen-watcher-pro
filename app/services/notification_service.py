@@ -17,6 +17,8 @@ from pathlib import Path
 from app.core import rule_engine
 from app.db.repository import Repository
 from app.services.email_service import EmailService
+from app.services.issue_vectorstore import IssueMemoryResult, IssueVectorStore
+from app.services.voice_alert_service import VoiceAlertService
 
 logger = logging.getLogger("screen_watcher.notify")
 
@@ -44,6 +46,7 @@ class RuleDecision:
     action: str
     action_reason: str
     recipients: list[str] = field(default_factory=list)
+    issue_memory: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -57,6 +60,8 @@ class NotificationService:
         self.repo = repo
         self.cfg = app_config or {}
         self.email = EmailService(self.cfg.get("email", {}))
+        self.issue_store = IssueVectorStore(repo, self.cfg)
+        self.voice = VoiceAlertService(self.cfg)
 
     def process(self, screenshot_id: int, user_id: int, target_label: str,
                 window_title: str, file_path: str | None, ocr_text: str) -> NotificationOutcome:
@@ -96,6 +101,15 @@ class NotificationService:
                     "Rule did not match, so no email is considered."))
                 continue
 
+            issue_memory = self.issue_store.classify_event(
+                screenshot_id=screenshot_id,
+                target_label=target_label,
+                window_title=window_title,
+                ocr_text=ocr_text,
+                rule_eval=ev,
+            )
+            self._maybe_voice_alert(ev, issue_memory)
+
             recipients = list(owners.get(ev.owner_group, {}).get("emails", []))
             if not recipients:
                 reason = (f"Rule matched but owner_group '{ev.owner_group}' has no "
@@ -104,7 +118,8 @@ class NotificationService:
                                               "", "no_owner", reason)
                 decisions.append(RuleDecision(
                     ev.rule_id, ev.rule_name, ev.rule_type, ev.severity, ev.owner_group,
-                    True, ev.reason, "no_owner", reason))
+                    True, ev.reason, "no_owner", reason,
+                    issue_memory=issue_memory.to_dict()))
                 continue
 
             # Cooldown check (BR03 / BR04). Skipped entirely when cooldown is turned
@@ -125,7 +140,8 @@ class NotificationService:
                                                   ", ".join(recipients), "skipped_cooldown", reason)
                     decisions.append(RuleDecision(
                         ev.rule_id, ev.rule_name, ev.rule_type, ev.severity, ev.owner_group,
-                        True, ev.reason, "skipped_cooldown", reason, recipients))
+                        True, ev.reason, "skipped_cooldown", reason, recipients,
+                        issue_memory.to_dict()))
                     continue
 
             # Send email (BR03)
@@ -154,7 +170,7 @@ class NotificationService:
                                           subject=subject, body=body)
             decisions.append(RuleDecision(
                 ev.rule_id, ev.rule_name, ev.rule_type, ev.severity, ev.owner_group,
-                True, ev.reason, action, reason, recipients))
+                True, ev.reason, action, reason, recipients, issue_memory.to_dict()))
 
         return NotificationOutcome(decisions, self._summarize(decisions))
 
@@ -201,6 +217,22 @@ class NotificationService:
             f"{'-' * 50}\n"
             f"OCR text:\n{snippet}\n"
         )
+
+    def _maybe_voice_alert(self, ev, issue_memory: IssueMemoryResult) -> None:
+        tts_cfg = self.cfg.get("tts", {}) if isinstance(self.cfg.get("tts", {}), dict) else {}
+        trigger_on = str(tts_cfg.get("trigger_on", "new_issue")).lower()
+        severities = {str(s).lower() for s in tts_cfg.get(
+            "severities", ["high", "critical", "major"]
+        )}
+        sev = str(ev.severity or "").lower()
+        if sev not in severities:
+            return
+        if trigger_on == "new_issue" and issue_memory.status != "new_issue":
+            return
+        if trigger_on == "known_issue" and issue_memory.status != "known_issue":
+            return
+        res = self.voice.alert(severity=ev.severity)
+        logger.info("voice alert result for rule %s: %s", ev.rule_id, res.detail)
 
     def _summarize(self, decisions: list[RuleDecision]) -> str:
         sent = sum(1 for d in decisions if d.action == "sent")
