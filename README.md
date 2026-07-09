@@ -807,3 +807,64 @@ launch_chatbox("http://127.0.0.1:8000", username="admin", password="admin123")
 - Chụp theo **cửa sổ trình duyệt**, không theo monitor vật lý.
 - Chưa có scheduler tự động (Task Scheduler/cron) — app chạy theo thao tác người dùng.
   Rule engine / cooldown / email đã có đầy đủ theo tài liệu.
+
+---
+
+## 9. PRD 2.2 — AI Assisted Event Review & Rule Governance (Phase 1 MVP)
+
+Lớp quản trị mới bên trên watcher core: mọi lần capture tạo ra một **Event**,
+được đánh giá bằng **rule trong DB** (`rules_db`, sync từ YAML lúc khởi động);
+match **Incident Rule** thì **rú SOS ngay trên console** (không cần mở UI);
+không match rule nào thì **AI Review cấp 1** phân loại và có thể đề xuất
+**Draft Rule** — nhưng rule do AI đề xuất **không bao giờ tự ACTIVE**
+(GR22-001), phải qua **User Review cấp 2** ở `/admin/review-queue`.
+
+```mermaid
+flowchart TD
+    A[Screen Watcher phát hiện Event\n(capture + OCR)] --> B[Normalize]
+    B --> C[Store SQLite: events]
+    C --> D{Evaluate bằng\nACTIVE rules_db}
+    D -->|Match Incident Rule 🚨| E[sos_alerts PENDING]
+    E --> E2[Console SosWatcherJob\nbeep mỗi 3s tới khi Acknowledge]
+    D -->|Match Normal Rule| F[Alert/Email như cũ\n(notification_service)]
+    D -->|Không match| G[AI Review cấp 1\nclassification / risk / confidence]
+    G -->|CREATE_DRAFT_RULE| H[rules_db: AI_SUGGESTED\nenabled=0 — GR22-001]
+    H --> I[User Review cấp 2\n/admin/review-queue]
+    I -->|Approve / Edit| J[Rule ACTIVE ✅\n(audit log)]
+    I -->|Reject + reason| K[Rule REJECTED — giữ lại\n+ reject_reason (GR22-003)]
+```
+
+### 9.1. Thành phần mới
+
+| Thành phần | Vị trí | Ghi chú |
+|---|---|---|
+| Migration 5+1 bảng mới | `app/db/migrations/002_prd22.sql` | idempotent; backup `data/screenwatcher.db.pre-prd22.bak` trước lần chạy đầu |
+| 6 repository | `app/db/repository.py` | Event / RuleDb / AiReview / UserReview / RuleTest / SosAlert |
+| 4 service | `app/services/{event,rule_management,ai_review,sos_alert}_service.py` | `GovernanceError` khi AI cố ACTIVE rule |
+| Console SOS job | `app/jobs/sos_watcher_job.py` | poll 3s, beep winsound/`\a`, chạy cùng FastAPI **và** desktop |
+| REST API | `app/ai/prd22_routes.py` | `/api/events`, `/api/rules`, `/api/ai/reviews`, `/api/sos/alerts`, `/api/audit` |
+| Web Admin UI | `app/ai/admin_ui/` (Jinja2 + HTMX) | `/admin/events`, `/admin/review-queue`, `/admin/rules`, `/admin/sos` (poll 2s), `/admin/audit` |
+| Chatbot tools | `app/ai/chat_agent.py` | 6 tool mới: SOS / review queue / approve / test rule / list rules |
+| Config | `config/rules.yaml` | block `prd22:` và `sos_alert:` |
+
+### 9.2. Trạng thái
+
+- **Event**: `NEW → NORMALIZED → EVALUATED → MATCHED_RULE / AI_REVIEW_PENDING →
+  AI_REVIEWED → USER_REVIEW_PENDING → CONFIRMED_ISSUE / CONFIRMED_INCIDENT / IGNORED / CLOSED`
+- **Rule**: `DRAFT → AI_SUGGESTED → USER_REVIEW_PENDING → ACTIVE / REJECTED / DISABLED`
+- **SOS**: `PENDING → (beep lặp lại) → ACKNOWLEDGED` (ghi `acknowledged_by` + `acknowledged_at`)
+
+### 9.3. Governance (có test trong `tests/`)
+
+- **GR22-001** — AI không được set rule `ACTIVE`/`enabled` → `GovernanceError`.
+- **GR22-002** — Incident Rule phải do user tạo/approve mới phát SOS tự động.
+- **GR22-003** — Reject bắt buộc nhập lý do; rule REJECTED được giữ lại.
+- **GR22-004** — Acknowledge SOS ghi lại người + thời điểm.
+- Mọi thay đổi rule / review / SOS đều ghi `audit_logs`; OCR gửi AI bị cắt ở
+  `max_context_chars` (6000) và không ghi log nội dung.
+
+### 9.4. Chạy demo
+
+Xem kịch bản 5 bước trong [`RUNBOOK-PRD22.md`](RUNBOOK-PRD22.md). Web admin:
+đăng nhập `http://127.0.0.1:8000/admin` bằng tài khoản của app (admin có toàn
+quyền; user thường chỉ xem + acknowledge SOS).

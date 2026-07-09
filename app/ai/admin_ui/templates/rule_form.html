@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form method="post" action="{{ action }}" class="card form">
+  {% if action == '/admin/rules/new' %}
+  <label>Rule id <input name="rule_id" value="{{ rule['rule_id'] }}" required
+         placeholder="payment_declined_alert"></label>
+  {% else %}
+  <p><b>Rule id:</b> <code>{{ rule['rule_id'] }}</code> (v{{ rule['version'] }})</p>
+  {% endif %}
+  <label>Name <input name="name" value="{{ rule['name'] }}" required></label>
+  <label>Type
+    <select name="rule_type">
+      {% for t in rule_types %}
+      <option value="{{ t }}" {% if rule['rule_type'] == t %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Condition (JSON)
+    <textarea name="condition_json" rows="4" required>{{ rule['condition_json'] }}</textarea>
+    <small>contains/not_contains: {"value": "..."} · regex: {"pattern": "..."} ·
+           *_keywords: {"keywords": ["..."]} (+ "ignore_case": true)</small>
+  </label>
+  <label>Description <input name="description" value="{{ rule['description'] or '' }}"></label>
+  <label>Owner group <input name="owner_group" value="{{ rule['owner_group'] or '' }}"
+         placeholder="ops_team"></label>
+  <label>Severity
+    <select name="severity">
+      {% for s in ["low","medium","high","critical"] %}
+      <option value="{{ s }}" {% if rule['severity'] == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Status
+    <select name="status">
+      {% for s in ["DRAFT","AI_SUGGESTED","USER_REVIEW_PENDING","ACTIVE","REJECTED","DISABLED"] %}
+      <option value="{{ s }}" {% if rule['status'] == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <small>ACTIVE also enables the rule. Only a user can do this (GR22-001).</small>
+  </label>
+  <label class="check"><input type="checkbox" name="is_incident_rule" value="true"
+         {% if rule['is_incident_rule'] %}checked{% endif %}>
+    🚨 Incident rule — a match creates an SOS alert (sound + acknowledge)</label>
+  <label>Cooldown (seconds) <input name="cooldown_seconds" type="number"
+         value="{{ rule['cooldown_seconds'] }}"></label>
+  <label>Priority <input name="priority" type="number" value="{{ rule['priority'] }}"></label>
+  <button class="btn ok" type="submit">Save</button>
+  <a class="btn" href="/admin/rules">Cancel</a>
+</form>
+{% endblock %}

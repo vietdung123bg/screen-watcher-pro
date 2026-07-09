@@ -255,6 +255,10 @@ def create_app(app_config: dict | None = None) -> FastAPI:
     rw_repo = Repository(rw_db)
     auth_service = AuthService(rw_repo)
 
+    # PRD 2.2 stack: events / rules_db / AI review / user review / SOS (+ YAML sync).
+    from app.services.prd22_bootstrap import build_prd22
+    prd22 = build_prd22(rw_db, rw_repo, app_config, provider=provider)
+
     # Capture pipeline (lazy: pulls in pywin32 only on first use) — shared by the
     # /watcher/executions endpoint and the chat agent's trigger_capture tool.
     _runner: dict = {}
@@ -263,7 +267,9 @@ def create_app(app_config: dict | None = None) -> FastAPI:
         if "capture" not in _runner:
             from app.services.capture_service import CaptureService
             from app.services.notification_service import NotificationService
-            _runner["capture"] = CaptureService(rw_repo, NotificationService(rw_repo, app_config))
+            _runner["capture"] = CaptureService(
+                rw_repo, NotificationService(rw_repo, app_config),
+                event_service=prd22.event_service if prd22.enabled else None)
         return _runner["capture"]
 
     def _capture_fn(user_id, targets, launch=False):
@@ -274,7 +280,8 @@ def create_app(app_config: dict | None = None) -> FastAPI:
                 for r in results]
 
     # The chat agent (LLM + DB tools). Uses the writable repo so admin tools can act.
-    agent = ChatAgent(provider, rw_repo, context_service, capture_fn=_capture_fn)
+    agent = ChatAgent(provider, rw_repo, context_service, capture_fn=_capture_fn,
+                      prd22=prd22 if prd22.enabled else None)
     chat_store = ChatStore(rw_repo)     # persistent per-user conversations
 
     # Static role id -> name map (roles are seeded once) for serializing users.
@@ -825,6 +832,30 @@ def create_app(app_config: dict | None = None) -> FastAPI:
                     req_id, request.method, path, response.status_code, dur_ms)
         response.headers["X-Request-ID"] = req_id
         return response
+
+    # ---- PRD 2.2: event review / rule governance / SOS API + admin web UI ----
+    if prd22.enabled:
+        from app.ai.prd22_routes import create_prd22_router
+        app.include_router(create_prd22_router(prd22, rw_repo,
+                                               get_current_user, require_admin))
+        try:
+            from app.ai.admin_ui.admin_routes import create_admin_router
+            app.include_router(create_admin_router(prd22, rw_repo, auth_service, jwt_cfg))
+        except ImportError as e:   # jinja2 missing -> API still works, UI is skipped
+            logger.warning("Admin UI disabled (%s). pip install jinja2 to enable it.", e)
+
+        # Console SOS watcher: starts with the server, stops with it (graceful).
+        from app.jobs.sos_watcher_job import SosWatcherJob
+        sos_job = SosWatcherJob(prd22.sos_alerts, prd22.sos_job_config)
+
+        @app.on_event("startup")
+        def _start_sos_job() -> None:
+            if sos_job.enabled and not sos_job.is_alive():
+                sos_job.start()
+
+        @app.on_event("shutdown")
+        def _stop_sos_job() -> None:
+            sos_job.stop()
 
     return app
 

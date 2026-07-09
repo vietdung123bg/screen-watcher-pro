@@ -129,3 +129,28 @@ tts:
   severities: ["high", "critical", "major"]
   fallback_beep: true
   timeout_seconds: 20
+
+# ---- PRD 2.2: AI Assisted Event Review & Rule Governance (Phase 1 MVP) ----
+prd22:
+  enabled: true
+  ai_review:
+    enabled: true
+    auto_review_on_no_match: true      # unmatched events go to AI review level 1
+    prompt_version: ai_review_v1
+    max_context_chars: 6000            # cap of OCR text sent to the AI (never logged)
+    timeout_seconds: 120               # LLM timeout -> review status RETRY_REQUIRED
+  rule_governance:
+    ai_can_create_draft_rule: true
+    ai_can_activate_rule: false        # MUST stay false (GR22-001) — enforced in code too
+    require_user_review_for_ai_rule: true
+    sync_yaml_to_db_on_startup: true   # import the rules above into rules_db (insert-only)
+
+# ---- PRD 2.2: console SOS alarm (rings in the terminal, no browser needed) ----
+sos_alert:
+  enabled: true
+  sound_enabled: true
+  beep_frequency_hz: 1000
+  beep_duration_ms: 500
+  beep_repeat: 3
+  poll_interval_seconds: 3             # how often the job polls sos_alerts
+  cooldown_seconds: 300                # re-alarm window until acknowledged

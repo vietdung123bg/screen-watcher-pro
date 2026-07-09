@@ -108,6 +108,16 @@ SYSTEM_PROMPT = (
     "email.enabled=false means it won't really send.\n"
     "  - Run a capture: the Capture & OCR tab, or the trigger_capture tool / POST "
     "/api/watcher/executions.\n"
+    "PRD 2.2 — EVENT REVIEW & RULE GOVERNANCE: the app also has an event pipeline "
+    "(events -> AI review level 1 -> user review level 2), DB-backed rules (rules_db) and "
+    "SOS alerts for incident rules. Tools: get_pending_sos_alerts / acknowledge_sos (any "
+    "user), list_review_queue / test_rule_with_event (operator+admin), "
+    "approve_ai_suggested_rule (admin only), list_db_rules (any user). Governance you must "
+    "respect and can explain: the AI never activates a rule by itself (GR22-001) — an "
+    "AI-suggested rule stays AI_SUGGESTED until a human approves it in the Review Queue "
+    "(/admin/review-queue) or via approve_ai_suggested_rule; rejecting requires a reason "
+    "and the rule is kept (GR22-003); acknowledging an SOS records who and when (GR22-004). "
+    "The web admin UI lives at /admin (Events, Review Queue, Rules, SOS, Audit).\n"
     "Keep guidance short and specific to Tool Watcher. Call a tool first whenever live data is "
     "needed. If the answer is not in the data, say so."
 )
@@ -206,17 +216,71 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "username": {"type": "string"}}, "required": ["username"]},
     }},
+    # ---- PRD 2.2: event review / rule governance / SOS ----
+    {"type": "function", "function": {
+        "name": "get_pending_sos_alerts",
+        "description": "List the SOS incident alerts that are still PENDING acknowledgement "
+                       "(the console alarm keeps beeping for these).",
+        "parameters": {"type": "object", "properties": {}},
+    }},
+    {"type": "function", "function": {
+        "name": "acknowledge_sos",
+        "description": "Acknowledge a PENDING SOS alert by its id — stops the console alarm "
+                       "and records who acknowledged (GR22-004).",
+        "parameters": {"type": "object", "properties": {
+            "alert_id": {"type": "string", "description": "The sos_alerts UUID."}},
+            "required": ["alert_id"]},
+    }},
+    {"type": "function", "function": {
+        "name": "list_review_queue",
+        "description": "List the AI event reviews waiting for a level-2 user decision "
+                       "(operator/admin only), including any suggested draft rule.",
+        "parameters": {"type": "object", "properties": {}},
+    }},
+    {"type": "function", "function": {
+        "name": "approve_ai_suggested_rule",
+        "description": "Approve an AI review's suggested draft rule so it becomes ACTIVE "
+                       "(admin only). Pass the ai review id from list_review_queue.",
+        "parameters": {"type": "object", "properties": {
+            "review_id": {"type": "string", "description": "The ai_event_reviews UUID."},
+            "note": {"type": "string", "description": "Optional review note."}},
+            "required": ["review_id"]},
+    }},
+    {"type": "function", "function": {
+        "name": "test_rule_with_event",
+        "description": "Test a rules_db rule against an event's OCR text (operator/admin). "
+                       "Returns PASS/FAIL vs the expected decision (default MATCH).",
+        "parameters": {"type": "object", "properties": {
+            "rule_id": {"type": "string", "description": "rules_db rule_id or UUID."},
+            "event_id": {"type": "string", "description": "events UUID or EVT-... id."},
+            "text": {"type": "string", "description": "Sample text instead of an event."},
+            "expected_decision": {"type": "string", "enum": ["MATCH", "NO_MATCH"]}},
+            "required": ["rule_id"]},
+    }},
+    {"type": "function", "function": {
+        "name": "list_db_rules",
+        "description": "List the DB-backed rules (rules_db) with status/enabled/incident "
+                       "flags — includes AI-suggested drafts and rejected rules.",
+        "parameters": {"type": "object", "properties": {
+            "status": {"type": "string",
+                       "enum": ["DRAFT", "AI_SUGGESTED", "USER_REVIEW_PENDING",
+                                "ACTIVE", "REJECTED", "DISABLED"],
+                       "description": "Filter by status (optional)."}}},
+    }},
 ]
 
 
 class ChatAgent:
     def __init__(self, provider: ProviderConfig, repo, context_service: WatcherContextService,
-                 capture_fn=None):
-        """capture_fn(user_id, targets, launch) -> list[dict] enables the trigger tool."""
+                 capture_fn=None, prd22=None):
+        """capture_fn(user_id, targets, launch) -> list[dict] enables the trigger tool.
+        prd22 (Prd22Services, optional) enables the PRD 2.2 tools (SOS / review
+        queue / rules_db); without it those tools report that they are unavailable."""
         self.cfg = provider
         self.repo = repo
         self.ctx = context_service
         self.capture_fn = capture_fn
+        self.prd22 = prd22
         self.opencode = OpenCodeAdapter(provider)   # engine "opencode" (spec §11)
         self._roles = {r["id"]: r["name"] for r in repo.list_roles()}
 
@@ -626,6 +690,103 @@ class ChatAgent:
         self.repo.add_audit(user.id, "user.create",
                             f"chat created {username} role={role_row['name']}")
         return {"status": "ok", "created": self._user_public(self.repo.get_user(uid))}
+
+    # ---- PRD 2.2 tools (event review / rule governance / SOS) ----
+    def _is_operator(self, user: CurrentUser) -> bool:
+        return user.role_name in ("operator", "admin") or is_admin(user)
+
+    def _prd22_or_error(self):
+        if self.prd22 is None:
+            return {"error": "The PRD 2.2 event-review stack is not enabled in this context."}
+        return None
+
+    def _t_get_pending_sos_alerts(self, user, **_):
+        err = self._prd22_or_error()
+        if err:
+            return err
+        alerts = [dict(a) for a in self.prd22.sos_alerts.list(status="PENDING")]
+        return {"pending_count": len(alerts), "alerts": alerts}
+
+    def _t_acknowledge_sos(self, user, alert_id=None, **_):
+        err = self._prd22_or_error()
+        if err:
+            return err
+        if not alert_id:
+            return {"error": "alert_id is required."}
+        try:
+            return self.prd22.sos_service.acknowledge(alert_id, user)
+        except ValueError as e:
+            return {"error": str(e)}
+
+    def _t_list_review_queue(self, user, **_):
+        err = self._prd22_or_error()
+        if err:
+            return err
+        if not self._is_operator(user):
+            return _deny(user, "view the AI review queue")
+        items = []
+        for r in self.prd22.ai_reviews.list_review_queue():
+            item = {k: r[k] for k in ("id", "event_id", "classification", "risk_level",
+                                      "confidence", "reason", "suggested_action",
+                                      "suggested_rule_id", "created_at")}
+            item["public_event_id"] = r["public_event_id"]
+            if r["suggested_rule_id"]:
+                rule = self.prd22.rules.get(r["suggested_rule_id"])
+                if rule is not None:
+                    item["suggested_rule"] = {"rule_id": rule["rule_id"],
+                                              "name": rule["name"],
+                                              "status": rule["status"],
+                                              "condition_json": rule["condition_json"]}
+            items.append(item)
+        return {"pending_reviews": items}
+
+    def _t_approve_ai_suggested_rule(self, user, review_id=None, note=None, **_):
+        if not is_admin(user):
+            return _deny(user, "approve an AI-suggested rule")
+        err = self._prd22_or_error()
+        if err:
+            return err
+        if not review_id:
+            return {"error": "review_id is required."}
+        review = self.prd22.ai_reviews.get(review_id)
+        if review is None:
+            return {"error": f"No AI review with id {review_id}."}
+        from app.services.rule_management_service import GovernanceError
+        try:
+            return self.prd22.rule_service.apply_user_decision(
+                review["event_id"], review_id, "APPROVE", user, review_note=note)
+        except (GovernanceError, ValueError) as e:
+            return {"error": str(e)}
+
+    def _t_test_rule_with_event(self, user, rule_id=None, event_id=None, text=None,
+                                expected_decision="MATCH", **_):
+        err = self._prd22_or_error()
+        if err:
+            return err
+        if not self._is_operator(user):
+            return _deny(user, "test a rule")
+        if not rule_id:
+            return {"error": "rule_id is required."}
+        rule = self.prd22.rules.get(rule_id)
+        if rule is None:
+            return {"error": f"No rule with id {rule_id}."}
+        try:
+            return self.prd22.rule_service.test_rule(
+                rule["id"], user.username, event_pk=event_id, text=text,
+                expected_decision=expected_decision or "MATCH")
+        except ValueError as e:
+            return {"error": str(e)}
+
+    def _t_list_db_rules(self, user, status=None, **_):
+        err = self._prd22_or_error()
+        if err:
+            return err
+        rules = [{k: r[k] for k in ("id", "rule_id", "name", "rule_type", "status",
+                                    "enabled", "is_incident_rule", "severity",
+                                    "owner_group", "created_by", "version",
+                                    "reject_reason")}
+                 for r in self.prd22.rules.list(status=status)]
+        return {"rules": rules}
 
     def _t_delete_user(self, user, username=None, **_):
         if not is_admin(user):

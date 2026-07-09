@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Review Queue — Screen Watcher{% endblock %}
+{% block content %}
+<h1>⭐ Review Queue <small>AI suggestions awaiting your decision (level 2)</small></h1>
+{% for item in items %}
+{% set r = item.review %}
+{% set rule = item.rule %}
+<section class="card review-card">
+  <div class="review-head">
+    <b>Event <a href="/admin/events/{{ r['event_id'] }}">{{ r['public_event_id'] }}</a></b>
+    <span class="risk r-{{ r['risk_level'] }}">{{ r['risk_level'] }}</span>
+    <span>confidence {{ r['confidence'] }}</span>
+    <span class="muted">{{ r['created_at'] }}</span>
+  </div>
+  <p><b>Screen:</b> {{ (r['screen'] or '—')[:80] }}</p>
+  <details><summary>Original OCR text</summary>
+    <pre class="rawtext">{{ (r['raw_text'] or '')[:2000] }}</pre></details>
+  <p><b>AI reason:</b> {{ r['reason'] }}</p>
+  <p><b>Suggested action:</b> {{ r['suggested_action'] }}</p>
+  {% if rule %}
+  <p><b>Draft rule:</b> <code>{{ rule['rule_id'] }}</code> — {{ rule['name'] }}
+     <span class="status s-{{ rule['status'] }}">{{ rule['status'] }}</span><br>
+     <b>Condition:</b> <code>{{ rule['condition_json'] }}</code></p>
+  {% endif %}
+  {% if is_operator %}
+  <div class="review-actions">
+    <form method="post" action="/admin/review/{{ r['id'] }}/approve" class="inline">
+      <details><summary>Edit rule JSON before approving (optional)</summary>
+        <textarea name="edited_rule_json" rows="4" cols="60"
+          placeholder='{"name": "...", "condition": {"keywords": ["..."]}}'></textarea>
+      </details>
+      <input name="review_note" placeholder="note (optional)">
+      <button class="btn ok" type="submit">✔ Approve → ACTIVE</button>
+    </form>
+    <form method="post" action="/admin/review/{{ r['id'] }}/reject" class="inline">
+      <input name="reject_reason" placeholder="reject reason (REQUIRED)" required>
+      <button class="btn bad" type="submit">✘ Reject</button>
+    </form>
+  </div>
+  {% else %}
+  <p class="muted">Read-only — an operator or admin decides here.</p>
+  {% endif %}
+</section>
+{% else %}
+<p class="empty">🎉 Nothing waiting for review.</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sign in — Screen Watcher Admin</title>
+  <link rel="stylesheet" href="/admin/static/admin.css">
+</head>
+<body class="login-body">
+<div class="login-card">
+  <h2>🖥️ Screen Watcher — Admin</h2>
+  {% if err %}<div class="flash bad">{{ err }}</div>{% endif %}
+  <form method="post" action="/admin/login">
+    <label>Username <input name="username" required autofocus></label>
+    <label>Password <input name="password" type="password" required></label>
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

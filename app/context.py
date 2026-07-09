@@ -20,3 +20,5 @@ class AppContext:
     notification_service: NotificationService
     app_config: dict
     current_user: CurrentUser | None = None
+    prd22: object | None = None        # Prd22Services (PRD 2.2 stack), when enabled
+    sos_job: object | None = None      # console SosWatcherJob (desktop process)

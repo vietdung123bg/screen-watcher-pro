@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}SOS — Screen Watcher{% endblock %}
+{% block content %}
+<h1>🚨 SOS alerts
+  {% if pending %}<span class="badge blink big">{{ pending|length }} PENDING</span>{% endif %}
+</h1>
+<p class="muted">The console job keeps beeping until each alert is acknowledged.
+   This table refreshes every 2 seconds.</p>
+<div id="sos-table" hx-get="/admin/sos/rows" hx-trigger="every 2s" hx-swap="innerHTML">
+  {% include "_sos_rows.html" %}
+</div>
+<h3>Recently acknowledged</h3>
+<table>
+  <tr><th>Severity</th><th>Message</th><th>Ack by</th><th>Ack at</th><th>Beeps</th></tr>
+  {% for a in recent %}
+  <tr><td>{{ a['severity'] }}</td><td>{{ a['message'][:100] }}</td>
+      <td>{{ a['acknowledged_by'] }}</td><td>{{ a['acknowledged_at'] }}</td>
+      <td>{{ a['sound_played'] }}</td></tr>
+  {% else %}
+  <tr><td colspan="5" class="empty">Nothing acknowledged yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

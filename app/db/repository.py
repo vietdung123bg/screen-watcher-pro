@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.db.database import Database
@@ -403,3 +403,319 @@ class Repository:
             "SELECT * FROM issue_vectors ORDER BY last_seen_at DESC LIMIT ?",
             (int(limit),),
         )
+
+    def list_audit_logs(self, action: str | None = None, actor: str | None = None,
+                        since: str | None = None, limit: int = 100) -> list[sqlite3.Row]:
+        """Audit trail, newest first. `action` matches as a prefix (e.g. 'rule.'
+        returns rule.create/rule.approve/...); `actor` matches a username."""
+        sql = ("SELECT a.*, u.username FROM audit_logs a "
+               "LEFT JOIN users u ON u.id = a.user_id WHERE 1=1 ")
+        params: list = []
+        if action:
+            sql += "AND a.action LIKE ? "
+            params.append(action + "%")
+        if actor:
+            sql += "AND u.username = ? "
+            params.append(actor)
+        if since:
+            sql += "AND a.created_at >= ? "
+            params.append(since)
+        sql += "ORDER BY a.created_at DESC, a.id DESC LIMIT ?"
+        params.append(int(limit))
+        return self._query(sql, tuple(params))
+
+
+# ============================================================================
+# PRD 2.2 repositories (events / rules_db / AI review / user review /
+# rule tests / SOS alerts). Kept as separate classes so the legacy Repository
+# stays untouched; all share the same Database (and its lock).
+# ============================================================================
+
+class _BaseRepo:
+    """Shared SQLite helpers for the PRD 2.2 repositories."""
+
+    def __init__(self, db: Database):
+        self.db = db
+
+    def _exec(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        with self.db.lock:
+            cur = self.db.conn.execute(sql, params)
+            self.db.conn.commit()
+            return cur
+
+    def _query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+        with self.db.lock:
+            return self.db.conn.execute(sql, params).fetchall()
+
+    def _query_one(self, sql: str, params: tuple = ()) -> sqlite3.Row | None:
+        with self.db.lock:
+            return self.db.conn.execute(sql, params).fetchone()
+
+
+class EventRepository(_BaseRepo):
+    """CRUD for `events` (PRD 2.2 §events)."""
+
+    def create(self, source: str, screen: str | None, screenshot_id: str | None,
+               raw_text: str | None, metadata: dict | None = None,
+               confidence: float | None = None, event_time: str | None = None,
+               status: str = "NEW") -> str:
+        pk = uuid7()
+        self._exec(
+            "INSERT INTO events(id, event_id, source, screen, screenshot_id, raw_text, "
+            "metadata_json, confidence, status, event_time, created_at, updated_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pk, f"EVT-{pk}", source, screen, screenshot_id, raw_text,
+             json.dumps(metadata or {}, ensure_ascii=False), confidence, status,
+             event_time or _now(), _now(), _now()),
+        )
+        return pk
+
+    def get(self, event_id: str) -> sqlite3.Row | None:
+        """Accepts either the primary key or the public event_id (EVT-...)."""
+        return self._query_one(
+            "SELECT * FROM events WHERE id = ? OR event_id = ?", (event_id, event_id))
+
+    def list(self, status: str | None = None, screen: str | None = None,
+             source: str | None = None, limit: int = 20, offset: int = 0) -> list[sqlite3.Row]:
+        sql = "SELECT * FROM events WHERE 1=1 "
+        params: list = []
+        if status:
+            sql += "AND status = ? "
+            params.append(status)
+        if screen:
+            sql += "AND screen LIKE ? "
+            params.append(f"%{screen}%")
+        if source:
+            sql += "AND source = ? "
+            params.append(source)
+        sql += "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"
+        params.extend([int(limit), int(offset)])
+        return self._query(sql, tuple(params))
+
+    def count(self, status: str | None = None, screen: str | None = None,
+              source: str | None = None) -> int:
+        sql = "SELECT COUNT(*) AS c FROM events WHERE 1=1 "
+        params: list = []
+        if status:
+            sql += "AND status = ? "
+            params.append(status)
+        if screen:
+            sql += "AND screen LIKE ? "
+            params.append(f"%{screen}%")
+        if source:
+            sql += "AND source = ? "
+            params.append(source)
+        row = self._query_one(sql, tuple(params))
+        return int(row["c"]) if row else 0
+
+    def set_status(self, event_pk: str, status: str) -> None:
+        self._exec("UPDATE events SET status = ?, updated_at = ? WHERE id = ?",
+                   (status, _now(), event_pk))
+
+    def set_normalized(self, event_pk: str, normalized: dict, status: str = "NORMALIZED") -> None:
+        self._exec(
+            "UPDATE events SET normalized_json = ?, status = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(normalized, ensure_ascii=False), status, _now(), event_pk))
+
+
+class RuleDbRepository(_BaseRepo):
+    """CRUD for `rules_db` — status changes go through RuleManagementService,
+    which enforces the governance rules (GR22-001...)."""
+
+    _FIELDS = ("name", "description", "owner_group", "status", "enabled", "version",
+               "priority", "severity", "alert_type", "rule_type", "condition_json",
+               "is_incident_rule", "cooldown_seconds", "reject_reason")
+
+    def create(self, rule_id: str, name: str, rule_type: str, condition_json: str,
+               status: str = "DRAFT", enabled: int = 0, description: str = "",
+               owner_group: str = "", severity: str = "medium", alert_type: str = "",
+               is_incident_rule: int = 0, cooldown_seconds: int = 300,
+               priority: int = 50, created_by: str | None = None) -> str:
+        pk = uuid7()
+        self._exec(
+            "INSERT INTO rules_db(id, rule_id, name, description, owner_group, status, "
+            "enabled, version, priority, severity, alert_type, rule_type, condition_json, "
+            "is_incident_rule, cooldown_seconds, created_by, created_at, updated_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pk, rule_id, name, description, owner_group, status, int(enabled),
+             int(priority), severity, alert_type, rule_type, condition_json,
+             int(is_incident_rule), int(cooldown_seconds), created_by, _now(), _now()),
+        )
+        return pk
+
+    def get(self, rule_id: str) -> sqlite3.Row | None:
+        """Accepts either the primary key or the public rule_id."""
+        return self._query_one(
+            "SELECT * FROM rules_db WHERE id = ? OR rule_id = ?", (rule_id, rule_id))
+
+    def list(self, status: str | None = None, enabled: bool | None = None,
+             include_rejected: bool = True) -> list[sqlite3.Row]:
+        sql = "SELECT * FROM rules_db WHERE 1=1 "
+        params: list = []
+        if status:
+            sql += "AND status = ? "
+            params.append(status)
+        if enabled is not None:
+            sql += "AND enabled = ? "
+            params.append(1 if enabled else 0)
+        if not include_rejected:
+            sql += "AND status != 'REJECTED' "
+        sql += "ORDER BY priority ASC, created_at DESC"
+        return self._query(sql, tuple(params))
+
+    def list_active(self) -> list[sqlite3.Row]:
+        """The rules the event evaluator runs: ACTIVE and enabled."""
+        return self._query(
+            "SELECT * FROM rules_db WHERE status = 'ACTIVE' AND enabled = 1 "
+            "ORDER BY priority ASC")
+
+    def update(self, rule_pk: str, fields: dict) -> None:
+        """Update only whitelisted columns; bumps version + updated_at."""
+        cols = {k: v for k, v in fields.items() if k in self._FIELDS}
+        if not cols:
+            return
+        assignments = ", ".join(f"{c} = ?" for c in cols)
+        self._exec(
+            f"UPDATE rules_db SET {assignments}, version = version + 1, updated_at = ? "
+            f"WHERE id = ?",
+            tuple(cols.values()) + (_now(), rule_pk))
+
+
+class AiReviewRepository(_BaseRepo):
+    """CRUD for `ai_event_reviews` (level-1 AI review results)."""
+
+    def create(self, event_pk: str, status: str = "PENDING",
+               model_name: str = "", prompt_version: str = "") -> str:
+        pk = uuid7()
+        self._exec(
+            "INSERT INTO ai_event_reviews(id, event_id, status, model_name, "
+            "prompt_version, created_at) VALUES(?, ?, ?, ?, ?, ?)",
+            (pk, event_pk, status, model_name, prompt_version, _now()))
+        return pk
+
+    _FIELDS = ("classification", "risk_level", "confidence", "reason",
+               "suggested_action", "suggested_rule_json", "suggested_rule_id",
+               "model_name", "prompt_version", "status")
+
+    def update(self, review_pk: str, fields: dict) -> None:
+        cols = {k: v for k, v in fields.items() if k in self._FIELDS}
+        if not cols:
+            return
+        assignments = ", ".join(f"{c} = ?" for c in cols)
+        self._exec(f"UPDATE ai_event_reviews SET {assignments} WHERE id = ?",
+                   tuple(cols.values()) + (review_pk,))
+
+    def get(self, review_pk: str) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM ai_event_reviews WHERE id = ?", (review_pk,))
+
+    def latest_for_event(self, event_pk: str) -> sqlite3.Row | None:
+        return self._query_one(
+            "SELECT * FROM ai_event_reviews WHERE event_id = ? "
+            "ORDER BY created_at DESC, id DESC LIMIT 1", (event_pk,))
+
+    def list_review_queue(self, limit: int = 50) -> list[sqlite3.Row]:
+        """Reviews awaiting the level-2 user decision, with their event context."""
+        return self._query(
+            "SELECT r.*, e.event_id AS public_event_id, e.screen, e.status AS event_status, "
+            "       e.raw_text "
+            "FROM ai_event_reviews r JOIN events e ON e.id = r.event_id "
+            "WHERE r.status = 'REVIEWED' AND e.status = 'USER_REVIEW_PENDING' "
+            "ORDER BY r.created_at DESC LIMIT ?", (int(limit),))
+
+
+class UserReviewRepository(_BaseRepo):
+    """CRUD for `user_review_decisions` (level-2 user decisions)."""
+
+    def create(self, event_pk: str, ai_review_id: str | None, decision: str,
+               reviewed_by: str, edited_rule_json: str | None = None,
+               reject_reason: str | None = None, review_note: str | None = None) -> str:
+        pk = uuid7()
+        self._exec(
+            "INSERT INTO user_review_decisions(id, event_id, ai_review_id, decision, "
+            "edited_rule_json, reject_reason, review_note, reviewed_by, reviewed_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pk, event_pk, ai_review_id, decision, edited_rule_json, reject_reason,
+             review_note, reviewed_by, _now()))
+        return pk
+
+    def list_for_event(self, event_pk: str) -> list[sqlite3.Row]:
+        return self._query(
+            "SELECT * FROM user_review_decisions WHERE event_id = ? "
+            "ORDER BY reviewed_at DESC", (event_pk,))
+
+
+class RuleTestRepository(_BaseRepo):
+    """CRUD for `rule_test_results`."""
+
+    def create(self, rule_pk: str, event_pk: str | None, expected_decision: str,
+               actual_decision: str, result_status: str, tested_by: str | None,
+               matched_conditions: dict | None = None,
+               failed_conditions: dict | None = None) -> str:
+        pk = uuid7()
+        self._exec(
+            "INSERT INTO rule_test_results(id, rule_id, event_id, expected_decision, "
+            "actual_decision, matched_conditions_json, failed_conditions_json, "
+            "result_status, tested_by, tested_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pk, rule_pk, event_pk, expected_decision, actual_decision,
+             json.dumps(matched_conditions or {}, ensure_ascii=False),
+             json.dumps(failed_conditions or {}, ensure_ascii=False),
+             result_status, tested_by, _now()))
+        return pk
+
+    def list_for_rule(self, rule_pk: str, limit: int = 20) -> list[sqlite3.Row]:
+        return self._query(
+            "SELECT * FROM rule_test_results WHERE rule_id = ? "
+            "ORDER BY tested_at DESC LIMIT ?", (rule_pk, int(limit)))
+
+
+class SosAlertRepository(_BaseRepo):
+    """CRUD for `sos_alerts` + the polling contract of the console SosWatcherJob."""
+
+    def create(self, event_pk: str, rule_pk: str, severity: str, message: str,
+               incident_id: str | None = None, acknowledge_required: int = 1) -> str:
+        pk = uuid7()
+        self._exec(
+            "INSERT INTO sos_alerts(id, event_id, rule_id, incident_id, severity, message, "
+            "sound_played, acknowledge_required, acknowledge_status, created_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, 0, ?, 'PENDING', ?)",
+            (pk, event_pk, rule_pk, incident_id, severity, message,
+             int(acknowledge_required), _now()))
+        return pk
+
+    def get(self, alert_id: str) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM sos_alerts WHERE id = ?", (alert_id,))
+
+    def list(self, status: str | None = None, limit: int = 100) -> list[sqlite3.Row]:
+        sql = "SELECT * FROM sos_alerts WHERE 1=1 "
+        params: list = []
+        if status:
+            sql += "AND acknowledge_status = ? "
+            params.append(status)
+        sql += "ORDER BY created_at DESC LIMIT ?"
+        params.append(int(limit))
+        return self._query(sql, tuple(params))
+
+    def list_pending_for_beep(self, cooldown_seconds: int) -> list[sqlite3.Row]:
+        """PENDING alerts that are due for a(nother) beep: never beeped, or the
+        last beep is older than `cooldown_seconds` (the job's re-alarm window)."""
+        threshold = (datetime.now() - timedelta(seconds=int(cooldown_seconds))
+                     ).isoformat(timespec="seconds")
+        return self._query(
+            "SELECT * FROM sos_alerts WHERE acknowledge_status = 'PENDING' "
+            "AND (last_beep_at IS NULL OR last_beep_at < ?) "
+            "ORDER BY created_at", (threshold,))
+
+    def mark_beeped(self, alert_id: str) -> None:
+        self._exec(
+            "UPDATE sos_alerts SET sound_played = sound_played + 1, last_beep_at = ? "
+            "WHERE id = ?", (_now(), alert_id))
+
+    def acknowledge(self, alert_id: str, user_id: str) -> int:
+        """GR22-004: acknowledging records WHO and WHEN. Returns rows affected
+        (0 = not found or already acknowledged)."""
+        cur = self._exec(
+            "UPDATE sos_alerts SET acknowledge_status = 'ACKNOWLEDGED', "
+            "acknowledged_by = ?, acknowledged_at = ? "
+            "WHERE id = ? AND acknowledge_status = 'PENDING'",
+            (user_id, _now(), alert_id))
+        return cur.rowcount

@@ -223,8 +223,55 @@ class Database:
             self.conn.commit()
         self._migrate_ids_to_uuid()   # legacy INTEGER ids (any table) -> UUIDv7 TEXT
         self._migrate()
+        self.apply_migrations()       # SQL migration files (e.g. 002_prd22.sql)
         logger.info("Initialized schema at %s", self.path)
         self._seed_rbac()
+
+    def apply_migrations(self) -> None:
+        """Apply the SQL files in app/db/migrations/ in filename order.
+
+        Every file MUST be idempotent (CREATE TABLE IF NOT EXISTS ...), so
+        re-running is always safe. The first time a file is applied to this DB,
+        the DB is backed up next to itself first — e.g. 002_prd22.sql produces
+        data/screenwatcher.db.pre-prd22.bak. Applied files are recorded in
+        schema_migrations so the backup happens only once per migration.
+        """
+        import shutil
+
+        mig_dir = Path(__file__).resolve().parent / "migrations"
+        if not mig_dir.is_dir():
+            return
+        with self.lock:
+            cur = self.conn.cursor()
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS schema_migrations ("
+                "name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)"
+            )
+            applied = {r["name"] for r in cur.execute("SELECT name FROM schema_migrations")}
+            for sql_file in sorted(mig_dir.glob("*.sql")):
+                first_time = sql_file.name not in applied
+                if first_time:
+                    # 002_prd22.sql -> "<db>.pre-prd22.bak"
+                    tag = sql_file.stem.split("_", 1)[-1] or sql_file.stem
+                    backup = Path(f"{self.path}.pre-{tag}.bak")
+                    if self.path.exists() and not backup.exists():
+                        try:
+                            shutil.copy2(self.path, backup)
+                            logger.info("Backed up DB before migration %s -> %s",
+                                        sql_file.name, backup.name)
+                        except Exception as e:  # backup is best-effort
+                            logger.warning("Could not back up DB before %s: %s",
+                                           sql_file.name, e)
+                self.conn.executescript(sql_file.read_text(encoding="utf-8"))
+                if first_time:
+                    from datetime import datetime
+                    cur.execute(
+                        "INSERT OR IGNORE INTO schema_migrations(name, applied_at) "
+                        "VALUES(?, ?)",
+                        (sql_file.name, datetime.now().isoformat(timespec="seconds")),
+                    )
+                    logger.info("Applied migration %s", sql_file.name)
+            self.conn.commit()
 
     # (table, has own `id` PK, [(fk_column, referenced_table), ...])
     _UUID_REBUILD_SPEC = [

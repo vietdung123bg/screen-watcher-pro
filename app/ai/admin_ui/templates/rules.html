@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Rules — Screen Watcher{% endblock %}
+{% block content %}
+<h1>Rules (rules_db)
+  {% if is_admin %}<a class="btn" href="/admin/rules/new">+ New rule</a>{% endif %}</h1>
+<form method="get" class="filters">
+  <select name="status">
+    <option value="">— any status —</option>
+    {% for s in ["DRAFT","AI_SUGGESTED","USER_REVIEW_PENDING","ACTIVE","REJECTED","DISABLED"] %}
+    <option value="{{ s }}" {% if f_status == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filter</button>
+</form>
+<table>
+  <tr><th>Rule</th><th>Name</th><th>Type</th><th>Status</th><th>Enabled</th>
+      <th>Incident</th><th>Severity</th><th>By</th><th>v</th><th>Actions</th></tr>
+  {% for r in rules %}
+  <tr>
+    <td><code>{{ r['rule_id'] }}</code></td>
+    <td>{{ r['name'] }}{% if r['reject_reason'] %}<br>
+        <small class="bad-text">rejected: {{ r['reject_reason'] }}</small>{% endif %}</td>
+    <td>{{ r['rule_type'] }}</td>
+    <td><span class="status s-{{ r['status'] }}">{{ r['status'] }}</span></td>
+    <td>{{ '✅' if r['enabled'] else '—' }}</td>
+    <td>{{ '🚨' if r['is_incident_rule'] else '' }}</td>
+    <td>{{ r['severity'] }}</td>
+    <td>{{ r['created_by'] or '?' }}</td>
+    <td>{{ r['version'] }}</td>
+    <td class="actions">
+      {% if is_operator %}<a href="/admin/rules/{{ r['id'] }}/test">test</a>{% endif %}
+      {% if is_admin %}
+      <a href="/admin/rules/{{ r['id'] }}/edit">edit</a>
+      {% if r['enabled'] %}
+      <form method="post" action="/admin/rules/{{ r['id'] }}/disable" class="inline">
+        <button class="link">disable</button></form>
+      {% elif r['status'] == 'ACTIVE' %}
+      <form method="post" action="/admin/rules/{{ r['id'] }}/enable" class="inline">
+        <button class="link">enable</button></form>
+      {% endif %}
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="10" class="empty">No rules in the DB yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

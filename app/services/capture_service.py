@@ -30,9 +30,14 @@ class TargetResult:
 
 
 class CaptureService:
-    def __init__(self, repo: Repository, notifier: NotificationService):
+    def __init__(self, repo: Repository, notifier: NotificationService,
+                 event_service=None):
+        """event_service (PRD 2.2, optional): after the legacy OCR/rule/email flow,
+        each successful screenshot is also bridged into the event pipeline
+        (normalize -> evaluate -> SOS / AI review)."""
         self.repo = repo
         self.notifier = notifier
+        self.event_service = event_service
 
     def capture_targets(self, user_id: int, targets: list[str], launch: bool = False,
                         note: str = "") -> list[TargetResult]:
@@ -103,6 +108,12 @@ class CaptureService:
             )
         except Exception as e:
             logger.exception("Error during rule evaluation / email: %s", e)
+
+        # PRD 2.2 bridge: also push this capture through the event pipeline
+        # (create event -> normalize -> evaluate -> SOS / AI review). Never
+        # breaks the legacy flow: process_screenshot swallows its own errors.
+        if self.event_service is not None:
+            self.event_service.process_screenshot(screenshot_id)
 
         return TargetResult(target, label, "success", screenshot_id=screenshot_id,
                             file_path=str(file_path), window_title=title,

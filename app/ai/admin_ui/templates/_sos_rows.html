@@ -1,0 +1,20 @@
+<table>
+  <tr><th>Severity</th><th>Message</th><th>Created</th><th>Beeps</th><th></th></tr>
+  {% for a in pending %}
+  <tr class="sos-pending">
+    <td><span class="badge blink">{{ a['severity'] }}</span></td>
+    <td>{{ a['message'][:120] }}</td>
+    <td>{{ a['created_at'] }}</td>
+    <td>{{ a['sound_played'] }}</td>
+    <td>
+      <button class="btn ok"
+              hx-post="/admin/sos/{{ a['id'] }}/acknowledge"
+              hx-target="#sos-table" hx-swap="innerHTML">
+        ✔ Acknowledge
+      </button>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="empty">✅ No pending SOS alert.</td></tr>
+  {% endfor %}
+</table>

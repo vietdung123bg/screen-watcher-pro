@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Screen Watcher — Admin{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/admin/static/admin.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+<nav class="topnav">
+  <span class="brand">🖥️ Screen Watcher <small>PRD 2.2</small></span>
+  <a href="/admin/review-queue" class="nav-review">⭐ Review Queue</a>
+  <a href="/admin/events">Events</a>
+  <a href="/admin/rules">Rules</a>
+  <a href="/admin/sos" class="nav-sos">
+    🚨 SOS
+    {% if pending_sos %}<span class="badge blink">{{ pending_sos }}</span>{% endif %}
+  </a>
+  {% if is_admin %}<a href="/admin/audit">Audit</a>{% endif %}
+  <span class="spacer"></span>
+  <span class="who">{{ user.username }} ({{ user.role_name }})</span>
+  <a href="/admin/logout">Logout</a>
+</nav>
+<main>
+  {% if msg %}<div class="flash ok">{{ msg }}</div>{% endif %}
+  {% if err %}<div class="flash bad">{{ err }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

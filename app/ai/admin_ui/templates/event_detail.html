@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Event {{ event['event_id'] }}{% endblock %}
+{% block content %}
+<h1>Event <code>{{ event['event_id'] }}</code>
+  <span class="status s-{{ event['status'] }}">{{ event['status'] }}</span></h1>
+<div class="grid2">
+  <section class="card">
+    <h3>Details</h3>
+    <dl>
+      <dt>Source</dt><dd>{{ event['source'] }}</dd>
+      <dt>Screen</dt><dd>{{ event['screen'] or '—' }}</dd>
+      <dt>Screenshot</dt><dd>{{ event['screenshot_id'] or '—' }}</dd>
+      <dt>Event time</dt><dd>{{ event['event_time'] or '—' }}</dd>
+      <dt>Created / updated</dt><dd>{{ event['created_at'] }} / {{ event['updated_at'] }}</dd>
+    </dl>
+    <h3>Raw text (OCR)</h3>
+    <pre class="rawtext">{{ (event['raw_text'] or '')[:4000] }}</pre>
+    {% if normalized %}
+    <h3>Normalized</h3>
+    <pre>{{ normalized }}</pre>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h3>AI review (level 1)</h3>
+    {% if review %}
+    <dl>
+      <dt>Status</dt><dd>{{ review['status'] }}</dd>
+      <dt>Classification</dt><dd>{{ review['classification'] or '—' }}</dd>
+      <dt>Risk</dt><dd><span class="risk r-{{ review['risk_level'] }}">{{ review['risk_level'] or '—' }}</span>
+        (confidence {{ review['confidence'] or '?' }})</dd>
+      <dt>Reason</dt><dd>{{ review['reason'] or '—' }}</dd>
+      <dt>Suggested action</dt><dd>{{ review['suggested_action'] or '—' }}</dd>
+      <dt>Model / prompt</dt><dd>{{ review['model_name'] }} / {{ review['prompt_version'] }}</dd>
+    </dl>
+    {% if suggested_rule %}
+    <h3>Suggested draft rule</h3>
+    <dl>
+      <dt>Rule</dt><dd>{{ suggested_rule['rule_id'] }} — {{ suggested_rule['name'] }}</dd>
+      <dt>Status</dt><dd><span class="status s-{{ suggested_rule['status'] }}">{{ suggested_rule['status'] }}</span></dd>
+      <dt>Condition</dt><dd><code>{{ suggested_rule['condition_json'] }}</code></dd>
+    </dl>
+    <p><a class="btn" href="/admin/review-queue">Decide in the Review Queue ⭐</a></p>
+    {% endif %}
+    {% else %}
+    <p class="empty">No AI review for this event.</p>
+    {% endif %}
+    <h3>User decisions (level 2)</h3>
+    {% for d in decisions %}
+    <div class="decision">
+      <b>{{ d['decision'] }}</b> by {{ d['reviewed_by'] }} @ {{ d['reviewed_at'] }}
+      {% if d['reject_reason'] %}<br>Reason: {{ d['reject_reason'] }}{% endif %}
+      {% if d['review_note'] %}<br>Note: {{ d['review_note'] }}{% endif %}
+    </div>
+    {% else %}
+    <p class="empty">No user decision yet.</p>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

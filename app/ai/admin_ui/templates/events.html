@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Events — Screen Watcher{% endblock %}
+{% block content %}
+<h1>Events</h1>
+<form method="get" class="filters">
+  <select name="status">
+    <option value="">— any status —</option>
+    {% for s in ["NEW","NORMALIZED","EVALUATED","MATCHED_RULE","AI_REVIEW_PENDING",
+                 "AI_REVIEWED","USER_REVIEW_PENDING","CONFIRMED_ISSUE",
+                 "CONFIRMED_INCIDENT","IGNORED","CLOSED"] %}
+      <option value="{{ s }}" {% if f_status == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <input name="screen" placeholder="screen contains…" value="{{ f_screen }}">
+  <button type="submit">Filter</button>
+</form>
+<table>
+  <tr><th>Event</th><th>Source</th><th>Screen</th><th>Status</th><th>Created</th></tr>
+  {% for e in events %}
+  <tr>
+    <td><a href="/admin/events/{{ e['id'] }}">{{ e['event_id'][:21] }}…</a></td>
+    <td>{{ e['source'] }}</td>
+    <td>{{ (e['screen'] or '')[:60] }}</td>
+    <td><span class="status s-{{ e['status'] }}">{{ e['status'] }}</span></td>
+    <td>{{ e['created_at'] }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="empty">No events yet — run a capture or POST /api/events.</td></tr>
+  {% endfor %}
+</table>
+<div class="pager">
+  Page {{ page }} / {{ pages }} · {{ total }} event(s)
+  {% if page > 1 %}<a href="?status={{ f_status }}&screen={{ f_screen }}&page={{ page - 1 }}">← prev</a>{% endif %}
+  {% if page < pages %}<a href="?status={{ f_status }}&screen={{ f_screen }}&page={{ page + 1 }}">next →</a>{% endif %}
+</div>
+{% endblock %}

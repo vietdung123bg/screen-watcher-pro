@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Test rule {{ rule['rule_id'] }}{% endblock %}
+{% block content %}
+<h1>Test rule <code>{{ rule['rule_id'] }}</code></h1>
+<p><b>{{ rule['name'] }}</b> · {{ rule['rule_type'] }} ·
+   condition <code>{{ rule['condition_json'] }}</code></p>
+<form method="post" class="card form">
+  <label>Event id (tests against that event's OCR text)
+    <input name="event_id" placeholder="EVT-… or the event UUID"></label>
+  <p class="muted">…or paste a sample text:</p>
+  <label><textarea name="text" rows="4" placeholder="Payment declined for order #123"></textarea></label>
+  <label>Expected
+    <select name="expected_decision">
+      <option value="MATCH">MATCH</option>
+      <option value="NO_MATCH">NO_MATCH</option>
+    </select>
+  </label>
+  <button class="btn" type="submit">Run test</button>
+  <a class="btn" href="/admin/rules">Back</a>
+</form>
+{% if result %}
+  {% if result.get('error') %}
+  <div class="flash bad">{{ result['error'] }}</div>
+  {% else %}
+  <div class="card testresult {{ 'pass' if result['result'] == 'PASS' else 'fail' }}">
+    <h2>{{ '✅ PASS' if result['result'] == 'PASS' else '❌ FAIL' }}</h2>
+    <p>expected <b>{{ result['expected'] }}</b> — actual <b>{{ result['actual'] }}</b></p>
+    <p>{{ result['reason'] }}</p>
+    {% if result['matched_terms'] %}<p>Matched terms: {{ result['matched_terms'] }}</p>{% endif %}
+  </div>
+  {% endif %}
+{% endif %}
+<h3>Recent tests</h3>
+<table>
+  <tr><th>When</th><th>Expected</th><th>Actual</th><th>Result</th><th>By</th></tr>
+  {% for t in history %}
+  <tr><td>{{ t['tested_at'] }}</td><td>{{ t['expected_decision'] }}</td>
+      <td>{{ t['actual_decision'] }}</td>
+      <td><span class="status s-{{ t['result_status'] }}">{{ t['result_status'] }}</span></td>
+      <td>{{ t['tested_by'] }}</td></tr>
+  {% else %}
+  <tr><td colspan="5" class="empty">No tests recorded yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

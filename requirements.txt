@@ -15,3 +15,7 @@ PyJWT>=2.8.0                # JWT auth for the watcher API
 
 # ---- Tests (`run.cmd test` → pytest) ----
 pytest>=7.0
+
+# ---- PRD 2.2: AI Assisted Event Review & Rule Governance ----
+jinja2>=3.1            # server-rendered /admin UI (Jinja2 + HTMX)
+python-multipart>=0.0.9   # HTML form posts in the /admin UI

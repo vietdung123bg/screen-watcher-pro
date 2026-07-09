@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Audit — Screen Watcher{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<form method="get" class="filters">
+  <input name="action" placeholder="action prefix (rule. / sos. / review.)" value="{{ f_action }}">
+  <input name="actor" placeholder="username" value="{{ f_actor }}">
+  <input name="since" placeholder="since (YYYY-MM-DD)" value="{{ f_since }}">
+  <button type="submit">Filter</button>
+</form>
+<table>
+  <tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr>
+  {% for a in logs %}
+  <tr><td>{{ a['created_at'] }}</td><td>{{ a['username'] or 'system' }}</td>
+      <td><code>{{ a['action'] }}</code></td><td>{{ a['detail'] }}</td></tr>
+  {% else %}
+  <tr><td colspan="4" class="empty">No audit entries match.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -65,13 +65,30 @@ def build_context() -> AppContext:
         seed_first_run(repo, admin["id"])
 
     notifier = NotificationService(repo, app_config)
+
+    # PRD 2.2 stack: event pipeline + rule governance + SOS. The console SOS
+    # watcher also runs in the desktop process, so the terminal that launched
+    # `python run.py` beeps for PENDING incidents even with no web UI open.
+    from app.jobs.sos_watcher_job import SosWatcherJob
+    from app.services.prd22_bootstrap import build_prd22
+    prd22 = build_prd22(db, repo, app_config, email_service=notifier.email)
+    sos_job = None
+    if prd22.enabled:
+        sos_job = SosWatcherJob(prd22.sos_alerts, prd22.sos_job_config)
+        if sos_job.enabled:
+            sos_job.start()
+
     return AppContext(
         db=db,
         repo=repo,
         auth=AuthService(repo),
-        capture_service=CaptureService(repo, notifier),
+        capture_service=CaptureService(
+            repo, notifier,
+            event_service=prd22.event_service if prd22.enabled else None),
         notification_service=notifier,
         app_config=app_config,
+        prd22=prd22,
+        sos_job=sos_job,
     )
 
 
@@ -114,6 +131,8 @@ def main() -> int:
     show_login()
     root.mainloop()
 
+    if ctx.sos_job is not None:
+        ctx.sos_job.stop()
     ctx.db.close()
     logger.info("Application exited.")
     return 0
