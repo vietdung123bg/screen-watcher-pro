@@ -349,9 +349,24 @@ def create_app(app_config: dict | None = None) -> FastAPI:
             },
         }
 
+    # Console SOS watcher (PRD 2.2): lives and dies with the server process so
+    # the terminal keeps alarming even when no admin UI is open.
+    from contextlib import asynccontextmanager
+
+    from app.jobs.sos_watcher_job import SosWatcherJob
+    sos_job = SosWatcherJob(prd22.sos_alerts, prd22.sos_job_config)
+
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI):
+        if prd22.enabled and sos_job.enabled:
+            sos_job.start()
+        yield
+        sos_job.stop()          # graceful: signals the loop and joins the thread
+
     app = FastAPI(
         title="Screen Watcher Pro — API",
         version="1.0",
+        lifespan=_lifespan,
         openapi_tags=[
             {"name": "system", "description": "Liveness / health checks (public)."},
             {"name": "auth", "description": "Login / self-registration, issues JWT tokens (public)."},
@@ -843,19 +858,6 @@ def create_app(app_config: dict | None = None) -> FastAPI:
             app.include_router(create_admin_router(prd22, rw_repo, auth_service, jwt_cfg))
         except ImportError as e:   # jinja2 missing -> API still works, UI is skipped
             logger.warning("Admin UI disabled (%s). pip install jinja2 to enable it.", e)
-
-        # Console SOS watcher: starts with the server, stops with it (graceful).
-        from app.jobs.sos_watcher_job import SosWatcherJob
-        sos_job = SosWatcherJob(prd22.sos_alerts, prd22.sos_job_config)
-
-        @app.on_event("startup")
-        def _start_sos_job() -> None:
-            if sos_job.enabled and not sos_job.is_alive():
-                sos_job.start()
-
-        @app.on_event("shutdown")
-        def _stop_sos_job() -> None:
-            sos_job.stop()
 
     return app
 
