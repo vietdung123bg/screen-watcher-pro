@@ -41,3 +41,7 @@ config/rules.yaml
 .idea/
 .DS_Store
 Thumbs.db
+
+# ===== Workshop demo artifacts =====
+workshop/demo_data/
+workshop/*.pdf
