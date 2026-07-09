@@ -1,0 +1,46 @@
+{
+  "event": {
+    "id": "019f46bd-2870-791d-b710-3f547f22fd1f",
+    "event_id": "EVT-019f46bd-2870-791d-b710-3f547f22fd1f",
+    "source": "api",
+    "screen": "Payment monitoring",
+    "screenshot_id": null,
+    "raw_text": "ALERT: Payment declined for order #10293 - possible fraud on card ****4417",
+    "confidence": null,
+    "status": "MATCHED_RULE",
+    "event_time": "2026-07-09T18:57:09",
+    "created_at": "2026-07-09T18:57:09",
+    "updated_at": "2026-07-09T18:57:09",
+    "normalized": {
+      "char_count": 74,
+      "line_count": 1,
+      "first_lines": [
+        "ALERT: Payment declined for order #10293 - possible fraud on card ****4417"
+      ],
+      "screen": "Payment monitoring",
+      "source": "api",
+      "has_text": true
+    },
+    "metadata": {}
+  },
+  "evaluation": {
+    "event_id": "EVT-019f46bd-2870-791d-b710-3f547f22fd1f",
+    "matched": [
+      {
+        "rule_id": "payment_keywords",
+        "name": "Payment / fraud alert",
+        "is_incident": false,
+        "reason": "Found keyword(s) ['declined', 'fraud'] (need at least 1 of ['declined', 'chargeback', 'fraud']) \u2192 rule triggered."
+      },
+      {
+        "rule_id": "payment_declined_incident",
+        "name": "Payment declined / fraud (INCIDENT)",
+        "is_incident": true,
+        "reason": "Found keyword(s) ['declined', 'fraud'] (need at least 1 of ['declined', 'fraud', 'chargeback']) \u2192 rule triggered."
+      }
+    ],
+    "sos_created": 1,
+    "ai_review_triggered": false,
+    "status": "MATCHED_RULE"
+  }
+}

@@ -1,0 +1,14 @@
+rules:
+  - id: r1
+    name: Err
+    owner_group: ops
+    severity: high
+    metadata:
+      alert_type: Availability
+      runbook: RUNBOOK-ERR
+owners:
+  ops:
+    emails: [ops@example.com, oncall@example.com]
+email:
+  enabled: true
+  from: sender@example.com

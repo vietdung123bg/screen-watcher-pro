@@ -1,0 +1,19 @@
+{
+  "alerts": [
+    {
+      "id": "019f46bd-2883-78d5-bc9f-9d69a5cffe14",
+      "event_id": "019f46bd-2870-791d-b710-3f547f22fd1f",
+      "rule_id": "019f46bd-2822-7491-aa7a-3436714becab",
+      "incident_id": null,
+      "severity": "CRITICAL",
+      "message": "Incident rule 'Payment declined / fraud (INCIDENT)' (id=payment_declined_incident) matched event EVT-019f46bd-2870-791d-b710-3f547f22fd1f on screen 'Payment monitoring'",
+      "sound_played": 1,
+      "last_beep_at": "2026-07-09T18:57:13",
+      "acknowledge_required": 1,
+      "acknowledge_status": "PENDING",
+      "acknowledged_by": null,
+      "acknowledged_at": null,
+      "created_at": "2026-07-09T18:57:09"
+    }
+  ]
+}

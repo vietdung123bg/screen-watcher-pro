@@ -1,0 +1,11 @@
+tests/test_ai_review_governance.py::test_ai_cannot_create_active_rule PASSED [ 10%]
+tests/test_ai_review_governance.py::test_ai_cannot_create_enabled_rule PASSED [ 20%]
+tests/test_ai_review_governance.py::test_ai_cannot_set_status_active_on_existing_rule PASSED [ 30%]
+tests/test_ai_review_governance.py::test_ai_draft_creation_can_be_disabled_by_config PASSED [ 40%]
+tests/test_ai_review_governance.py::test_user_can_activate_rule PASSED   [ 50%]
+tests/test_ai_review_governance.py::test_reject_requires_reason PASSED   [ 60%]
+tests/test_ai_review_governance.py::test_rejected_rule_is_kept_with_reason PASSED [ 70%]
+tests/test_ai_review_governance.py::test_user_approve_activates_draft_and_confirms_event PASSED [ 80%]
+tests/test_ai_review_governance.py::test_user_reject_keeps_draft_with_reason_and_audits PASSED [ 90%]
+tests/test_ai_review_governance.py::test_ai_review_pipeline_never_activates PASSED [100%]
+============================= 10 passed in 1.77s ==============================

@@ -1,0 +1,26 @@
+{
+  "viewer_create_rule_status": 403,
+  "operator_create_rule_status": 403,
+  "viewer_audit_status": 403,
+  "approve": {
+    "decision_id": "019f46c3-0be4-705d-bdaf-53405988863c",
+    "decision": "APPROVE",
+    "event_status": "CONFIRMED_ISSUE",
+    "rule_id": "ai_draft_critical",
+    "rule_status": "ACTIVE"
+  },
+  "reject_missing_reason_status": 422,
+  "reject": {
+    "decision_id": "019f46c3-1760-76ff-b636-26e9d9354431",
+    "decision": "REJECT",
+    "event_status": "IGNORED",
+    "rule_id": "ai_draft_denied",
+    "rule_status": "REJECTED"
+  },
+  "sos_ack": {
+    "alert_id": "019f46bd-2883-78d5-bc9f-9d69a5cffe14",
+    "acknowledged_by": "admin",
+    "acknowledge_status": "ACKNOWLEDGED"
+  },
+  "sos_ack_double_status": 400
+}

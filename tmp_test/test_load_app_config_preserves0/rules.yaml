@@ -1,0 +1,17 @@
+rules:
+  - id: payment_keywords
+    name: Payment / fraud alert
+    type: any_keywords
+    keywords: ["declined", "chargeback", "fraud"]
+    owner_group: finance_team
+    metadata:
+      category: finance
+      alert_type: Security
+      target_screen: Payment monitoring page
+      runbook: RUNBOOK-PAYMENT-FRAUD
+      tags: ["payment", "fraud"]
+owners: {}
+email:
+  enabled: false
+cooldown:
+  default_minutes: 15

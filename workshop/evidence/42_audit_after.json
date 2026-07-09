@@ -1,0 +1,236 @@
+{
+  "audit": [
+    {
+      "id": "019f46c3-2092-7c6f-bcca-e2e7cb08a78a",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "sos.acknowledge",
+      "detail": "alert=019f46bd-2883-78d5-bc9f-9d69a5cffe14 event=019f46bd-2870-791d-b710-3f547f22fd1f",
+      "created_at": "2026-07-09T19:03:40",
+      "username": "admin"
+    },
+    {
+      "id": "019f46c3-2037-7898-862c-2fe7863ca410",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "review.reject",
+      "detail": "event=EVT-019f46c3-0c0f-7829-8629-9606f951afae ai_review=019f46c3-0c2f-7baa-bdb4-c8b95fa35e65 rule=ai_draft_denied reason=false positive - expected lockout",
+      "created_at": "2026-07-09T19:03:40",
+      "username": "admin"
+    },
+    {
+      "id": "019f46c3-200f-77e1-a9e0-40ed23191b0f",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "rule.rejected",
+      "detail": "rule_id=ai_draft_denied AI_SUGGESTED -> REJECTED source=user reason=false positive - expected lockout",
+      "created_at": "2026-07-09T19:03:40",
+      "username": "admin"
+    },
+    {
+      "id": "019f46c3-0c3d-73e4-991d-0b5e2f3a191c",
+      "user_id": null,
+      "action": "ai_review.done",
+      "detail": "event=EVT-019f46c3-0c0f-7829-8629-9606f951afae review=019f46c3-0c2f-7baa-bdb4-c8b95fa35e65 risk=HIGH action=CREATE_DRAFT_RULE",
+      "created_at": "2026-07-09T19:03:35",
+      "username": null
+    },
+    {
+      "id": "019f46c3-0c34-70e5-ab20-c81b3514c1b1",
+      "user_id": null,
+      "action": "rule.create",
+      "detail": "rule_id=ai_draft_denied status=AI_SUGGESTED source=ai",
+      "created_at": "2026-07-09T19:03:35",
+      "username": null
+    },
+    {
+      "id": "019f46c3-0c11-7b7f-a6a8-2ca1e937fc6c",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "event.create",
+      "detail": "event=019f46c3-0c0f-7829-8629-9606f951afae source=api",
+      "created_at": "2026-07-09T19:03:35",
+      "username": "admin"
+    },
+    {
+      "id": "019f46c3-0bf1-7d0d-8d69-76637ee1731a",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "review.approve",
+      "detail": "event=EVT-019f46bd-2968-7c82-8fa2-cf86336ab678 ai_review=019f46bd-2989-742d-93cd-cd7eef67e507 rule=ai_draft_critical",
+      "created_at": "2026-07-09T19:03:35",
+      "username": "admin"
+    },
+    {
+      "id": "019f46c3-0beb-7273-b17b-f8365f06d438",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "rule.active",
+      "detail": "rule_id=ai_draft_critical AI_SUGGESTED -> ACTIVE source=user",
+      "created_at": "2026-07-09T19:03:35",
+      "username": "admin"
+    },
+    {
+      "id": "019f46c3-0b31-7da4-90f1-32e99e4fec28",
+      "user_id": "019f46bd-27c9-798f-9ec7-5a62077583cc",
+      "action": "login",
+      "detail": "role=viewer",
+      "created_at": "2026-07-09T19:03:35",
+      "username": "vera"
+    },
+    {
+      "id": "019f46c3-0ac8-7d1c-ac04-9adabb55a2c0",
+      "user_id": "019f46bd-2722-73ca-98d0-b6d017093d2e",
+      "action": "login",
+      "detail": "role=operator",
+      "created_at": "2026-07-09T19:03:35",
+      "username": "oscar"
+    },
+    {
+      "id": "019f46c3-0a5b-7fb1-b935-03f72f15f95b",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "login",
+      "detail": "role=admin",
+      "created_at": "2026-07-09T19:03:35",
+      "username": "admin"
+    },
+    {
+      "id": "019f46c1-9607-78cc-a3d9-599eb301cadc",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "login",
+      "detail": "role=admin",
+      "created_at": "2026-07-09T19:01:59",
+      "username": "admin"
+    },
+    {
+      "id": "019f46be-aad9-7979-a442-a861efc2feec",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "login",
+      "detail": "role=admin",
+      "created_at": "2026-07-09T18:58:48",
+      "username": "admin"
+    },
+    {
+      "id": "019f46be-0e33-78d4-baa3-6d4e0815256e",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "login",
+      "detail": "role=admin",
+      "created_at": "2026-07-09T18:58:08",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-b247-701e-9d84-58a655430076",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "login",
+      "detail": "role=admin",
+      "created_at": "2026-07-09T18:57:44",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-29ff-7c39-b09e-6739ea7c4a6b",
+      "user_id": null,
+      "action": "ai_review.done",
+      "detail": "event=EVT-019f46bd-29c3-7d32-905e-7fffa6c54b5a review=019f46bd-29ed-75e9-9f56-8bdef80aafdd risk=LOW action=IGNORE",
+      "created_at": "2026-07-09T18:57:10",
+      "username": null
+    },
+    {
+      "id": "019f46bd-29ca-79cd-87ab-3930b1335468",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "event.create",
+      "detail": "event=019f46bd-29c3-7d32-905e-7fffa6c54b5a source=api",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-29a6-7933-86a7-7a9caeac1690",
+      "user_id": null,
+      "action": "ai_review.done",
+      "detail": "event=EVT-019f46bd-2968-7c82-8fa2-cf86336ab678 review=019f46bd-2989-742d-93cd-cd7eef67e507 risk=HIGH action=CREATE_DRAFT_RULE",
+      "created_at": "2026-07-09T18:57:09",
+      "username": null
+    },
+    {
+      "id": "019f46bd-2994-7742-97d6-836eee76fff1",
+      "user_id": null,
+      "action": "rule.create",
+      "detail": "rule_id=ai_draft_critical status=AI_SUGGESTED source=ai",
+      "created_at": "2026-07-09T18:57:09",
+      "username": null
+    },
+    {
+      "id": "019f46bd-296c-7e35-8cb4-7133b837756e",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "event.create",
+      "detail": "event=019f46bd-2968-7c82-8fa2-cf86336ab678 source=api",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-291f-7e1c-938a-efd68b602b5a",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "event.create",
+      "detail": "event=019f46bd-2919-70df-8aed-00865577e03d source=api",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-28c9-7dd3-91a9-f6d98016210e",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "event.create",
+      "detail": "event=019f46bd-28c5-7b2e-8332-62f19cb624dc source=api",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-2887-77f9-9b6d-abcf83e3b00a",
+      "user_id": null,
+      "action": "sos.create",
+      "detail": "alert=019f46bd-2883-78d5-bc9f-9d69a5cffe14 event=EVT-019f46bd-2870-791d-b710-3f547f22fd1f rule=payment_declined_incident severity=CRITICAL",
+      "created_at": "2026-07-09T18:57:09",
+      "username": null
+    },
+    {
+      "id": "019f46bd-2874-723b-b9a5-08d52dc94585",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "event.create",
+      "detail": "event=019f46bd-2870-791d-b710-3f547f22fd1f source=api",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-282b-7d2e-8cf2-d0b3fca38882",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "rule.create",
+      "detail": "rule_id=payment_declined_incident status=ACTIVE source=user",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-27d2-7849-bac2-e712d54003e8",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "user.create",
+      "detail": "username=vera role=viewer",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-2727-77ca-9bb7-7bfc175fcd01",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "user.create",
+      "detail": "username=oscar role=operator",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bd-2658-732a-bd75-48dab2a4acf5",
+      "user_id": "019f46bc-cf41-795f-b80a-298eaeb933c3",
+      "action": "login",
+      "detail": "role=admin",
+      "created_at": "2026-07-09T18:57:09",
+      "username": "admin"
+    },
+    {
+      "id": "019f46bc-cf6a-7c94-ba5f-962ef06f69be",
+      "user_id": null,
+      "action": "rule.yaml_sync",
+      "detail": "imported 3 YAML rule(s) into rules_db",
+      "created_at": "2026-07-09T18:56:46",
+      "username": null
+    }
+  ]
+}

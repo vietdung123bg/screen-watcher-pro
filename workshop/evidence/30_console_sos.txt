@@ -1,0 +1,14 @@
+=== CONSOLE SOS ALARM — bằng chứng job chạy nền tự rú (không cần mở UI) ===
+(trích log tiến trình uvicorn của server — app/jobs/sos_watcher_job.py)
+
+18:56:47 | INFO    | sos_job | SOS watcher job started (poll=3.0s, re-alarm cooldown=300s).
+18:57:09 | WARNING | sos     | SOS alert created: ... Incident rule 'Payment declined / fraud (INCIDENT)' matched event ... on screen 'Payment monitoring'
+
+🚨🚨🚨 [SOS] CRITICAL — Incident rule 'Payment declined / fraud (INCIDENT)' (id=payment_declined_incident) matched event EVT-019f46bd-2870-... on screen 'Payment monitoring' @ 2026-07-09T18:57:09 🚨🚨🚨
+18:57:11 | WARNING | sos_job | SOS ALARM: alert=019f46bd-2883-... severity=CRITICAL
+
+--- 5 phút sau: TỰ RÚ LẠI vì chưa acknowledge (re-alarm cooldown = 300s) ---
+🚨🚨🚨 [SOS] CRITICAL — Incident rule 'Payment declined / fraud (INCIDENT)' ... @ 2026-07-09T18:57:09 🚨🚨🚨
+19:02:14 | WARNING | sos_job | SOS ALARM: alert=019f46bd-2883-... severity=CRITICAL
+
+=> Beep bằng winsound (Windows) / '\a' (khác); rú lặp lại tới khi có người Acknowledge.

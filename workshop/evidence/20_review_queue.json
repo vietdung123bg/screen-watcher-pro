@@ -1,0 +1,42 @@
+{
+  "reviews": [
+    {
+      "id": "019f46bd-2989-742d-93cd-cd7eef67e507",
+      "event_id": "019f46bd-2968-7c82-8fa2-cf86336ab678",
+      "classification": "suspicious_signal",
+      "risk_level": "HIGH",
+      "confidence": 0.85,
+      "reason": "[mock review] The text contains warning signal(s) ['critical', 'unavailable'] but no active rule matched.",
+      "suggested_action": "CREATE_DRAFT_RULE",
+      "suggested_rule_json": "{\"rule_id\": \"ai_draft_critical\", \"name\": \"AI draft: alert on critical\", \"rule_type\": \"any_keywords\", \"condition\": {\"keywords\": [\"critical\", \"unavailable\"], \"ignore_case\": true}, \"severity\": \"high\", \"owner_group\": \"ops_team\", \"is_incident_rule\": false}",
+      "suggested_rule_id": "019f46bd-298f-7094-8ce2-1f0740757d64",
+      "model_name": "mock",
+      "prompt_version": "ai_review_v1",
+      "status": "REVIEWED",
+      "created_at": "2026-07-09T18:57:09",
+      "public_event_id": "EVT-019f46bd-2968-7c82-8fa2-cf86336ab678",
+      "screen": "Grafana",
+      "event_status": "USER_REVIEW_PENDING",
+      "raw_text": "Kafka consumer lag CRITICAL: 240k messages, broker unavailable"
+    },
+    {
+      "id": "019f46bd-29ed-75e9-9f56-8bdef80aafdd",
+      "event_id": "019f46bd-29c3-7d32-905e-7fffa6c54b5a",
+      "classification": "noise",
+      "risk_level": "LOW",
+      "confidence": 0.9,
+      "reason": "[mock review] No known warning signal in the text.",
+      "suggested_action": "IGNORE",
+      "suggested_rule_json": null,
+      "suggested_rule_id": null,
+      "model_name": "mock",
+      "prompt_version": "ai_review_v1",
+      "status": "REVIEWED",
+      "created_at": "2026-07-09T18:57:09",
+      "public_event_id": "EVT-019f46bd-29c3-7d32-905e-7fffa6c54b5a",
+      "screen": "Ops dashboard",
+      "event_status": "USER_REVIEW_PENDING",
+      "raw_text": "All systems operational. 0 open incidents."
+    }
+  ]
+}
