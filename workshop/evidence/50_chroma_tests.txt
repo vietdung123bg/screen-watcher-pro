@@ -1,0 +1,8 @@
+tests/test_chroma_issue_store.py::test_chroma_backend_active PASSED      [ 14%]
+tests/test_chroma_issue_store.py::test_similar_event_is_known_issue PASSED [ 28%]
+tests/test_chroma_issue_store.py::test_different_event_is_new_issue PASSED [ 42%]
+tests/test_chroma_issue_store.py::test_sqlite_mirror_keeps_chatbot_readers_working PASSED [ 57%]
+tests/test_chroma_issue_store.py::test_persists_across_reopen PASSED     [ 71%]
+tests/test_chroma_issue_store.py::test_backfill_from_existing_sqlite PASSED [ 85%]
+tests/test_chroma_issue_store.py::test_falls_back_to_sqlite_when_backend_sqlite PASSED [100%]
+============================== 7 passed in 4.08s ==============================

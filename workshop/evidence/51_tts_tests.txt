@@ -1,0 +1,9 @@
+tests/test_voice_alert_hf.py::test_disabled_returns_no_attempt PASSED    [ 12%]
+tests/test_voice_alert_hf.py::test_transformers_success_path PASSED      [ 25%]
+tests/test_voice_alert_hf.py::test_transformers_failure_falls_back_to_beep PASSED [ 37%]
+tests/test_voice_alert_hf.py::test_transformers_failure_no_beep_when_disabled PASSED [ 50%]
+tests/test_voice_alert_hf.py::test_command_provider_path PASSED          [ 62%]
+tests/test_voice_alert_hf.py::test_no_provider_beeps PASSED              [ 75%]
+tests/test_voice_alert_hf.py::test_write_wav_is_valid_pcm16 PASSED       [ 87%]
+tests/test_voice_alert_hf.py::test_real_hf_synthesis SKIPPED (set SW...) [100%]
+======================== 7 passed, 1 skipped in 0.46s =========================
