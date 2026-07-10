@@ -114,13 +114,19 @@ issues:
   enabled: true
   similarity_threshold: 0.78
   vector_dimensions: 256
+  backend: chroma          # chroma (real vector DB, needs requirements-ml.txt) | sqlite (built-in)
+  embedding: hashing       # hashing (offline) | sentence_transformers (neural, downloads once)
+  chroma_path: ""          # default data/chroma/. Falls back to sqlite if chromadb missing.
 
 # ---- Audible alert / Vietnamese TTS ----
-# The default model id is a Hugging Face GGUF model. Set command when you have a
-# local runner installed; placeholders: {text}, {model_id}, {model_path}.
+# provider: transformers -> REAL Hugging Face TTS (facebook/mms-tts-vie), offline+CPU
+#           after first download (needs requirements-ml.txt); huggingface_gguf/command
+#           -> local GGUF runner. Falls back to a beep if synthesis is unavailable.
 tts:
   enabled: false
-  provider: huggingface_gguf
+  provider: transformers
+  hf_model_id: facebook/mms-tts-vie
+  hf_cache_dir: ""
   model_id: pnnbao-ump/VieNeu-TTS-0.3B-q4-gguf
   model_path: ""                       # or set env VIENEU_TTS_MODEL_PATH
   command: []                          # example: ["your-tts-runner", "--model", "{model_path}", "--text", "{text}"]

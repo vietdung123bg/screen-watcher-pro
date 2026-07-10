@@ -1,0 +1,19 @@
+# Optional ML dependencies — NOT required to run the base app.
+# Install when you want the real vector DB and/or neural TTS:
+#     pip install -r requirements-ml.txt
+# Everything here is offline & CPU-only (no GPU needed). The app degrades
+# gracefully to the built-in SQLite issue store + a beep alert when these
+# packages are absent.
+
+# ---- ChromaDB issue-memory backend (config: issues.backend=chroma) ----
+chromadb>=1.5
+
+# ---- Hugging Face Text-to-Speech (config: tts.provider=transformers) ----
+# torch is the CPU build; install from the CPU index to avoid CUDA:
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+transformers>=4.40
+numpy>=1.24
+
+# ---- Optional: neural embeddings for ChromaDB (issues.embedding=sentence_transformers) ----
+# sentence-transformers>=2.6

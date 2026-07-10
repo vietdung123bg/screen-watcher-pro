@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import re
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from typing import Any
 
 from app.db.repository import Repository
 
+logger = logging.getLogger("screen_watcher.issue_memory")
 
 TOKEN_RE = re.compile(r"[\wÀ-ỹ]+", re.UNICODE)
 
@@ -56,8 +58,25 @@ class IssueVectorStore:
         self.threshold = float(issues_cfg.get("similarity_threshold", 0.78))
         self.dimensions = int(issues_cfg.get("vector_dimensions", 256))
 
+        # Optional real vector database backend (ChromaDB). Falls back to this
+        # built-in SQLite hashing store if the backend isn't 'chroma' or chromadb
+        # isn't installed — the app keeps working either way.
+        self._delegate = None
+        backend = str(issues_cfg.get("backend", "sqlite")).strip().lower()
+        if self.enabled and backend == "chroma":
+            try:
+                from app.services.chroma_issue_store import ChromaIssueStore
+                self._delegate = ChromaIssueStore(repo, cfg)
+                logger.info("Issue memory backend: ChromaDB")
+            except Exception as e:
+                logger.warning("ChromaDB backend unavailable (%s) — using SQLite hashing store.", e)
+
     def classify_event(self, *, screenshot_id: str, target_label: str, window_title: str,
                        ocr_text: str, rule_eval) -> IssueMemoryResult:
+        if self._delegate is not None:
+            return self._delegate.classify_event(
+                screenshot_id=screenshot_id, target_label=target_label,
+                window_title=window_title, ocr_text=ocr_text, rule_eval=rule_eval)
         if not self.enabled or not getattr(rule_eval, "matched", False):
             return IssueMemoryResult()
 

@@ -45,3 +45,6 @@ Thumbs.db
 # ===== Workshop demo artifacts =====
 workshop/demo_data/
 workshop/*.pdf
+
+# ChromaDB persistent store (regenerated)
+data/chroma/

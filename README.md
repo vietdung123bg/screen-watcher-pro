@@ -868,3 +868,49 @@ flowchart TD
 Xem kịch bản 5 bước trong [`RUNBOOK-PRD22.md`](RUNBOOK-PRD22.md). Web admin:
 đăng nhập `http://127.0.0.1:8000/admin` bằng tài khoản của app (admin có toàn
 quyền; user thường chỉ xem + acknowledge SOS).
+
+---
+
+## 10. Vector DB (ChromaDB) & Text-to-Speech (Hugging Face)
+
+Hai thành phần ML **tuỳ chọn**, chạy **offline / không cần GPU**. App nền vẫn
+chạy khi chưa cài — tự **degrade** về store SQLite + beep. Cài khi cần:
+
+```powershell
+pip install -r requirements-ml.txt
+# torch nên cài từ CPU index để tránh CUDA:
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+### 10.1. ChromaDB — issue-memory vector DB thật
+
+- Bật bằng `issues.backend: chroma` trong `config/rules.yaml`.
+- `chromadb.PersistentClient` lưu collection tại `data/chroma/` (bền qua restart).
+- **Offline tuyệt đối**: app tự cấp embedding nên Chroma **không tải model** nào.
+  Mặc định `issues.embedding: hashing` (dense hashing, không model). Có thể chọn
+  `sentence_transformers` (neural, tải 1 lần) nếu muốn tìm kiếm ngữ nghĩa mạnh hơn.
+- **Không phá gì**: bản ghi issue vẫn nằm ở SQLite `issue_vectors` (chatbot/UI đọc
+  như cũ) — Chroma chỉ là chỉ mục vector. Id dùng chung, và lịch sử SQLite có sẵn
+  được **back-fill** vào Chroma ở lần chạy đầu.
+- Thiếu `chromadb` → tự fallback sang store SQLite (log cảnh báo, không lỗi).
+- File: [app/services/chroma_issue_store.py](app/services/chroma_issue_store.py).
+
+### 10.2. Hugging Face Text-to-Speech (transformers, CPU)
+
+- Bật bằng `tts.enabled: true` + `tts.provider: transformers`.
+- Model mặc định `facebook/mms-tts-vie` (VITS/MMS-TTS **tiếng Việt**), chạy CPU;
+  **offline sau lần tải đầu** (cache HF ở `~/.cache/huggingface`).
+- Đọc `tts.alert_text` khi có cảnh báo → phát WAV (winsound trên Windows).
+- Chuỗi fallback: `transformers` (HF) → `command` (GGUF runner) → **beep**. Bất kỳ
+  lỗi/thiếu thư viện nào cũng không chặn luồng rule.
+- Vẫn giữ đường cũ `huggingface_gguf` + `tts.command` cho model GGUF (VieNeu-TTS).
+- File: [app/services/voice_alert_service.py](app/services/voice_alert_service.py).
+
+### 10.3. Kiểm thử
+
+- [tests/test_chroma_issue_store.py](tests/test_chroma_issue_store.py) — new/known/
+  different, persistence, back-fill, SQLite mirror (tự skip nếu thiếu `chromadb`).
+- [tests/test_voice_alert_hf.py](tests/test_voice_alert_hf.py) — routing + fallback
+  (không cần ML), WAV PCM hợp lệ; bản synth thật chạy khi `SW_TTS_REAL=1`.
+- Bằng chứng synth thật: `workshop/evidence/tts_mms_vie_sample.wav`
+  (3.25s @ 16 kHz, đọc tiếng Việt, dựng trên CPU).

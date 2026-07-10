@@ -381,6 +381,9 @@ class Repository:
         )
         return issue_id
 
+    def get_issue_vector(self, issue_id: str) -> sqlite3.Row | None:
+        return self._query_one("SELECT * FROM issue_vectors WHERE id = ?", (issue_id,))
+
     def list_issue_vectors(self, status: str | None = "open") -> list[sqlite3.Row]:
         sql = "SELECT * FROM issue_vectors "
         params: tuple = ()
