@@ -1,0 +1,28 @@
+=== CONSOLE SOS ALARM (captured from the demo server's stdout) ===
+
+12:16:10 | INFO    | screen_watcher.sos_job | SOS watcher job started (poll=3.0s, re-alarm cooldown=300s).
+12:16:11 | WARNING | screen_watcher.sos | SOS alert created: 019f4f9a-c7db-78a1-8a9b-d56a32514745 (Incident rule 'Payment declined / fraud (INCIDENT)' (id=payment_declined_incident) matched event EVT-019f4f9a-c7d3-76d5-b79a-0854938a1048 on screen 'Payment monitoring')
+12:16:11 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-c7d3-76d5-b79a-0854938a1048 evaluated: 2 match(es), 1 SOS, ai_review=False
+12:16:11 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-c7e5-7f81-b11a-5cb71f73d20b evaluated: 1 match(es), 0 SOS, ai_review=False
+12:16:11 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-c85c-70f6-bec4-ddb162b91ae2 evaluated: 1 match(es), 0 SOS, ai_review=False
+12:16:11 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-c867-7984-8883-c000c75aeca8 evaluated: 0 match(es), 0 SOS, ai_review=True
+12:16:11 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-c876-75e1-81f7-ca3acdbc803a evaluated: 0 match(es), 0 SOS, ai_review=True
+🚨🚨🚨 [SOS] CRITICAL — Incident rule 'Payment declined / fraud (INCIDENT)' 
+2026-07-11T12:16:11 🚨🚨🚨
+12:16:13 | WARNING | screen_watcher.sos_job | SOS ALARM: alert=019f4f9a-c7db-78a1-8a9b-d56a32514745 severity=CRITICAL
+12:16:14 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-d45f-7ac9-9de1-0a31ee562c54 evaluated: 0 match(es), 0 SOS, ai_review=True
+12:16:16 | INFO    | screen_watcher.ai.server | req id=b349dcf2fa3e GET /api/sos/alerts -> 200 1ms
+INFO:     127.0.0.1:56345 - "GET /api/sos/alerts?status=PENDING HTTP/1.1" 200 OK
+12:16:16 | INFO    | screen_watcher.sos | SOS alert 019f4f9a-c7db-78a1-8a9b-d56a32514745 acknowledged by admin
+12:16:16 | INFO    | screen_watcher.ai.server | req id=10e03e10c8e1 POST /api/sos/alerts/019f4f9a-c7db-78a1-8a9b-d56a32514745/acknowledge -> 200 6ms
+INFO:     127.0.0.1:56345 - "POST /api/sos/alerts/019f4f9a-c7db-78a1-8a9b-d56a32514745/acknowledge HTTP/1.1" 200 OK
+12:16:16 | INFO    | screen_watcher.ai.server | req id=1405cc94bfe1 POST /api/sos/alerts/019f4f9a-c7db-78a1-8a9b-d56a32514745/acknowledge -> 400 0ms
+INFO:     127.0.0.1:56345 - "POST /api/sos/alerts/019f4f9a-c7db-78a1-8a9b-d56a32514745/acknowledge HTTP/1.1" 400 Bad Request
+12:16:16 | WARNING | screen_watcher.sos | SOS alert created: 019f4f9a-dc6f-75c4-9db2-cd453481fc5e (Incident rule 'Payment declined / fraud (INCIDENT)' (id=payment_declined_incident) matched event EVT-019f4f9a-dc68-7f12-8657-a06c06776ed0 on screen 'Payment monitoring')
+12:16:16 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-dc68-7f12-8657-a06c06776ed0 evaluated: 3 match(es), 1 SOS, ai_review=False
+12:16:16 | INFO    | screen_watcher.event_service | Event EVT-019f4f9a-dc76-73bc-9298-ff0fff4549fd evaluated: 0 match(es), 0 SOS, ai_review=True
+🚨🚨🚨 [SOS] CRITICAL — Incident rule 'Payment declined / fraud (INCIDENT)' 
+2026-07-11T12:16:16 🚨🚨🚨
+12:16:18 | WARNING | screen_watcher.sos_job | SOS ALARM: alert=019f4f9a-dc6f-75c4-9db2-cd453481fc5e severity=CRITICAL
+12:16:32 | INFO    | screen_watcher.ai.server | req id=280a1eb0649e GET /admin/sos -> 200 12ms
+INFO:     127.0.0.1:56583 - "GET /admin/sos HTTP/1.1" 200 OK

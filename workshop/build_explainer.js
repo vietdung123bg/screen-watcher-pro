@@ -2,7 +2,7 @@
 // ChromaDB (smart memory) and Hugging Face TTS (spoken alerts).
 const pptxgen = require("pptxgenjs");
 const fs = require("fs");
-const IMG = "D:/AI/screen-watcher-pro/workshop/evidence/";
+const IMG = "D:/AI/screen-watcher-pro/workshop/110726/evidence/";
 const dim = f => { const b = fs.readFileSync(IMG + f); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
 
 const INK = "172033", BG = "EEF1F5", CARD = "FFFFFF", BLUE = "24466E",
@@ -148,29 +148,30 @@ function arrow(s, x, y, w, col) {
 // ===================================================== SLIDE 5 — CHROMA: EVIDENCE
 (() => {
   const s = pres.addSlide(); s.background = { color: BG };
-  titleBar(s, "ChromaDB · Bằng chứng", "Demo thật: 4 cảnh báo vào → 2 sự cố duy nhất", TEAL);
+  titleBar(s, "ChromaDB · Bằng chứng", "Demo thật: 5 cảnh báo vào → 3 sự cố duy nhất", TEAL);
   const rows = [
     ["Payment declined #10293 — fraud", "🆕 SỰ CỐ MỚI", "lần 1", AMBER],
     ["Payment declined #55019 — fraud suspected", "♻️ ĐÃ GẶP (giống 94%)", "lần 2", GREEN],
-    ["ERROR: disk full 98% on db-02", "🆕 SỰ CỐ MỚI", "lần 1", AMBER],
+    ["ERROR: disk full 98% trên db-02", "🆕 SỰ CỐ MỚI", "lần 1", AMBER],
     ["Payment declined #77123 — chargeback", "♻️ ĐÃ GẶP (giống 96%)", "lần 3", GREEN],
+    ["Kafka broker CRITICAL unavailable", "🆕 SỰ CỐ MỚI", "lần 1", AMBER],
   ];
-  const y0 = 1.95;
-  s.addText("Cảnh báo đưa vào", { x: 0.75, y: y0, w: 6.4, h: 0.35, fontFace: BODY, fontSize: 12, bold: true, color: MUTED, margin: 0 });
-  s.addText("ChromaDB kết luận", { x: 7.3, y: y0, w: 5.3, h: 0.35, fontFace: BODY, fontSize: 12, bold: true, color: MUTED, margin: 0 });
+  const y0 = 1.85;
+  s.addText("Cảnh báo đưa vào", { x: 0.75, y: y0, w: 6.4, h: 0.32, fontFace: BODY, fontSize: 12, bold: true, color: MUTED, margin: 0 });
+  s.addText("ChromaDB kết luận", { x: 7.3, y: y0, w: 5.3, h: 0.32, fontFace: BODY, fontSize: 12, bold: true, color: MUTED, margin: 0 });
   rows.forEach(([inp, res, cnt, col], i) => {
-    const y = 2.35 + i * 0.92;
-    card(s, 0.6, y, 6.5, 0.78, "FFFFFF");
-    s.addText(inp, { x: 0.8, y, w: 6.2, h: 0.78, fontFace: MONO, fontSize: 12.5, color: INK, valign: "middle", margin: 0 });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 7.3, y, w: 5.45, h: 0.78, rectRadius: 0.08,
+    const y = 2.2 + i * 0.75;
+    card(s, 0.6, y, 6.5, 0.63, "FFFFFF");
+    s.addText(inp, { x: 0.8, y, w: 6.2, h: 0.63, fontFace: MONO, fontSize: 12, color: INK, valign: "middle", margin: 0 });
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 7.3, y, w: 5.45, h: 0.63, rectRadius: 0.08,
       fill: { color: col === GREEN ? "E7F5EC" : "FFF3D6" }, line: { color: col, width: 1.2 } });
     s.addText([{ text: res + "   ", options: { bold: true, color: col } },
                { text: "· xuất hiện " + cnt, options: { color: MUTED } }],
-      { x: 7.5, y, w: 5.1, h: 0.78, fontFace: BODY, fontSize: 13, valign: "middle", margin: 0 });
+      { x: 7.5, y, w: 5.1, h: 0.63, fontFace: BODY, fontSize: 12.5, valign: "middle", margin: 0 });
   });
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 6.15, w: 12.15, h: 0.8, rectRadius: 0.08, fill: { color: INK } });
   s.addText([{ text: "Kết quả:  ", options: { bold: true, color: "FFD764" } },
-             { text: "4 cảnh báo → chỉ 2 sự cố thật sự khác nhau. Người trực không bị spam 4 lần cho cùng 1 vấn đề. ", options: { color: "FFFFFF" } },
+             { text: "5 cảnh báo → chỉ 3 sự cố thật sự khác nhau. Người trực không bị spam nhiều lần cho cùng 1 vấn đề. ", options: { color: "FFFFFF" } },
              { text: " (7/7 test tự động PASS)", options: { color: ICE, italic: true } }],
     { x: 0.85, y: 6.15, w: 11.7, h: 0.8, fontFace: BODY, fontSize: 13.5, valign: "middle", margin: 0 });
 })();
@@ -213,9 +214,9 @@ function arrow(s, x, y, w, col) {
   img(s, "tts_waveform.png", 0.85, 2.35, 11.65, 1.85);
   // metadata cards
   const meta = [
-    ["Câu đọc", "\"Cảnh báo nghiêm trọng. Hệ thống thanh toán phát hiện giao dịch gian lận. Vui lòng kiểm tra ngay.\""],
+    ["Câu đọc", "\"Cảnh báo. Sự cố nghiêm trọng vừa được xác nhận. Vui lòng kiểm tra hệ thống ngay lập tức.\""],
     ["Model", "facebook/mms-tts-vie  (Hugging Face, VITS/MMS-TTS)"],
-    ["Thông số", "5.86 giây · 16.000 Hz · mono · dựng trên CPU (không GPU)"],
+    ["Thông số", "5.95 giây · 16.000 Hz · mono · dựng trên CPU (không GPU)"],
     ["An toàn", "Offline sau lần tải đầu · thiếu thư viện/lỗi → tự động beep, không chặn cảnh báo"],
   ];
   meta.forEach(([k, v], i) => {
@@ -223,7 +224,7 @@ function arrow(s, x, y, w, col) {
     s.addText(k, { x: 0.75, y, w: 1.9, h: 0.55, fontFace: BODY, fontSize: 13, bold: true, color: PURPLE, valign: "top", margin: 0 });
     s.addText(v, { x: 2.75, y, w: 9.9, h: 0.6, fontFace: BODY, fontSize: 12.5, color: INK, valign: "top", margin: 0 });
   });
-  s.addText("File: workshop/evidence/tts_alert_vi.wav  ·  tts_mms_vie_sample.wav  ·  7/7 test tự động PASS",
+  s.addText("File: workshop/110726/evidence/tts_alert_vi.wav  ·  8/8 test tự động PASS (bao gồm cả synth thật)",
     { x: 0.75, y: 6.95, w: 12, h: 0.3, fontFace: MONO, fontSize: 10.5, italic: true, color: MUTED, margin: 0 });
 })();
 

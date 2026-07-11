@@ -82,9 +82,21 @@ if /I "%MODE%"=="jupyter" goto notebook
 if /I "%MODE%"=="demo" goto demo
 if /I "%MODE%"=="test" goto test
 if /I "%MODE%"=="tests" goto test
+if /I "%MODE%"=="ml" goto ml
+if /I "%MODE%"=="evidence" goto evidence
 
 echo Usage:
-echo   run.cmd [desktop^|api^|notebook^|demo^|test]
+echo   run.cmd [desktop^|api^|notebook^|demo^|test^|ml^|evidence]
+echo.
+echo   desktop    Open the desktop app (Tkinter) — auto-starts the API server + Jupyter.
+echo   api        Start the FastAPI/uvicorn server only (http://127.0.0.1:8000, admin UI at /admin).
+echo   notebook   Open the Jupyter chatbox client.
+echo   demo       API server in a separate window + the Jupyter chatbox.
+echo   test       Run the pytest suite.
+echo   ml         Install the optional ML extras (ChromaDB + Hugging Face TTS; CPU, offline).
+echo   evidence   Auto-run the full PRD 2.2 flow (tests + admin screenshots + console SOS log +
+echo              ChromaDB/TTS demo) and save it to workshop^<DDMMYY^>\evidence\.
+echo              Optional 2nd arg overrides the folder name, e.g.: run.cmd evidence 250712
 exit /b 2
 
 :desktop
@@ -95,7 +107,7 @@ echo [run] Unified log : "%CD%\logs\app_<YYYYMMDD>.log"  (app actions + LLM tool
 exit /b %ERRORLEVEL%
 
 :api
-echo [run] Starting API server at http://127.0.0.1:8000
+echo [run] Starting API server at http://127.0.0.1:8000  (admin UI: http://127.0.0.1:8000/admin)
 echo [run] Session log : "%RUNLOG%"
 "%VENV_PY%" -u -m uvicorn app.ai.chat_server:app --host 127.0.0.1 --port 8000 --workers 1 2>&1 | powershell -NoProfile -Command "$input | Tee-Object -FilePath '%RUNLOG%'"
 exit /b %ERRORLEVEL%
@@ -119,3 +131,27 @@ echo [run] Running tests...
 "%VENV_PY%" -m pytest
 exit /b %ERRORLEVEL%
 
+:ml
+echo [setup] Installing optional ML extras (ChromaDB + Hugging Face TTS)...
+echo [setup] This is CPU-only and offline after the first model download — no GPU required.
+"%VENV_PY%" -m pip install -r requirements-ml.txt
+if errorlevel 1 exit /b %ERRORLEVEL%
+"%VENV_PY%" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+if errorlevel 1 exit /b %ERRORLEVEL%
+echo [setup] Done. Set issues.backend: chroma and/or tts.provider: transformers in config\rules.yaml.
+exit /b 0
+
+:evidence
+echo [run] Auto-testing the full PRD 2.2 flow and capturing evidence...
+if not exist ".venv\.evidence-deps.ok" (
+  echo [setup] Installing evidence-capture tooling ^(playwright^)...
+  "%VENV_PY%" -m pip install playwright
+  if errorlevel 1 exit /b %ERRORLEVEL%
+  "%VENV_PY%" -m playwright install chromium
+  if errorlevel 1 exit /b %ERRORLEVEL%
+  echo ok > ".venv\.evidence-deps.ok"
+)
+echo [run] Session log : "%RUNLOG%"
+echo [run] Tip: run "run.cmd ml" first to also capture the ChromaDB/HF-TTS demo steps.
+"%VENV_PY%" -u workshop\capture_evidence.py %2 2>&1 | powershell -NoProfile -Command "$input | Tee-Object -FilePath '%RUNLOG%'"
+exit /b %ERRORLEVEL%

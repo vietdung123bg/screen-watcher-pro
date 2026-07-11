@@ -10,41 +10,87 @@
 # ===== Python =====
 .venv/
 venv/
+env/
+ENV/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
 
-# ===== App data: screenshots, OCR text, SQLite DB, logs =====
+# Packaging / build artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ===== Test / type-check / lint caches =====
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.pyre/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# Scratch folder created by pytest tmp_path-style tests
+tmp_test/
+tmp/
+.tmp/
+
+# ===== App data: screenshots, OCR text, SQLite DB, ChromaDB, logs =====
 data/screenshots/
 data/ocr_results/
 data/*.db
+data/*.sqlite
+data/*.sqlite3
 logs/
+# ChromaDB persistent store (regenerated)
+data/chroma/
 
 # ===== DB backups (e.g. auto-created by the UUID migration) =====
 *.bak
 data/*.bak
 *.pre-uuid.bak
+*.pre-prd22.bak
 
-# ===== Claude Code local tooling / session state =====
+# ===== Claude Code / agent tooling local state =====
 .claude/
+.agents/
+
+# Marker file dropped by run.cmd after `pip install -r requirements.txt`
+.venv/.deps.ok
 
 # ===== Local config with real credentials / personal emails =====
 # Copy config/rules.example.yaml -> config/rules.yaml and fill in your own values.
 config/rules.yaml
+config/*.local.*
 # Stray top-level rules.yaml is not used by the app (it reads config/rules.yaml).
 /rules.yaml
 
 # ===== Jupyter =====
 .ipynb_checkpoints/
+*.nbconvert.ipynb
 
 # ===== IDE / OS noise =====
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
+desktop.ini
+# Office lock/temp files (repo ships .pptx artefacts under workshop/)
+~$*
 
 # ===== Workshop demo artifacts =====
 workshop/demo_data/
 workshop/*.pdf
-
-# ChromaDB persistent store (regenerated)
-data/chroma/

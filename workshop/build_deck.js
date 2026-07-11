@@ -3,7 +3,7 @@
 const pptxgen = require("pptxgenjs");
 const fs = require("fs");
 
-const IMG = "D:/AI/screen-watcher-pro/workshop/evidence/";
+const IMG = "D:/AI/screen-watcher-pro/workshop/110726/evidence/";
 const dim = f => { const b = fs.readFileSync(IMG + f); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
 
 // ---- palette (informed by the app's own UI colors) ----
@@ -68,13 +68,13 @@ function chip(slide, x, y, txt, col) {
     { x: 0.85, y: 4.7, w: 11.5, h: 0.4, fontFace: BODY, fontSize: 15, color: INKSOFT, margin: 0 });
   // footer chips
   s.addShape(pres.shapes.LINE, { x: 0.85, y: 5.7, w: 11.6, h: 0, line: { color: "2c3c58", width: 1 } });
-  const foot = [["106/106", "unit tests PASS"], ["6", "bảng + 4 service mới"], ["GR22-001…004", "governance enforced"]];
+  const foot = [["120/120", "unit tests PASS"], ["6", "bảng + 4 service mới"], ["GR22-001…004", "governance enforced"]];
   foot.forEach(([a, b], i) => {
     const x = 0.85 + i * 4.0;
     s.addText(a, { x, y: 5.9, w: 3.7, h: 0.5, fontFace: HEAD, fontSize: 26, bold: true, color: "FFD764", margin: 0 });
     s.addText(b, { x, y: 6.45, w: 3.7, h: 0.4, fontFace: BODY, fontSize: 13, color: INKSOFT, margin: 0 });
   });
-  s.addText("Workshop demo  ·  09/07/2026", { x: 8.5, y: 6.9, w: 4, h: 0.3, fontFace: BODY,
+  s.addText("Workshop demo  ·  11/07/2026", { x: 8.5, y: 6.9, w: 4, h: 0.3, fontFace: BODY,
     fontSize: 11, color: "6d7d99", align: "right", margin: 0 });
 })();
 
@@ -196,13 +196,14 @@ function chip(slide, x, y, txt, col) {
   s.addText("console — uvicorn (app/jobs/sos_watcher_job.py)", { x: 5.72, y: 4.64, w: 6.9, h: 0.3,
     fontFace: MONO, fontSize: 10, color: "6d7d99", margin: 0 });
   s.addText([
-    { text: "18:57:09  sos  SOS alert created: Payment declined / fraud (INCIDENT)\n", options: { color: "b9c4d6", breakLine: true } },
+    { text: "10:24:58  sos  SOS alert created: Payment declined / fraud (INCIDENT)\n", options: { color: "b9c4d6", breakLine: true } },
     { text: "🚨🚨🚨 [SOS] CRITICAL — Incident rule 'payment_declined_incident'\n", options: { color: "ff6b6b", bold: true, breakLine: true } },
-    { text: "         matched event EVT-019f46bd… @ 2026-07-09T18:57:09 🚨🚨🚨\n", options: { color: "ff6b6b", bold: true, breakLine: true } },
-    { text: "18:57:11  sos_job  SOS ALARM: severity=CRITICAL\n", options: { color: "ffd764", breakLine: true } },
-    { text: "— 5 phút sau, CHƯA ack → TỰ RÚ LẠI —\n", options: { color: "7fd39a", italic: true, breakLine: true } },
-    { text: "19:02:14  sos_job  SOS ALARM: severity=CRITICAL", options: { color: "ffd764" } },
-  ], { x: 5.72, y: 4.98, w: 6.95, h: 1.78, fontFace: MONO, fontSize: 10.5, lineSpacingMultiple: 1.0, margin: 0 });
+    { text: "         matched event EVT-019f4f34… @ 2026-07-11T10:24:58 🚨🚨🚨\n", options: { color: "ff6b6b", bold: true, breakLine: true } },
+    { text: "10:25:00  sos_job  SOS ALARM: severity=CRITICAL\n", options: { color: "ffd764", breakLine: true } },
+    { text: "10:25:06  sos  alert acknowledged by admin  →  console DỪNG rú\n", options: { color: "7fd39a", breakLine: true } },
+    { text: "10:25:06  sos  NEW SOS alert created (incident #2) → rú lại ngay\n", options: { color: "b9c4d6", breakLine: true } },
+    { text: "10:25:07  sos_job  SOS ALARM: severity=CRITICAL", options: { color: "ffd764" } },
+  ], { x: 5.72, y: 4.98, w: 6.95, h: 1.78, fontFace: MONO, fontSize: 9.7, lineSpacingMultiple: 1.0, margin: 0 });
 })();
 
 // ============================================ SLIDE 5 — AI REVIEW → REVIEW QUEUE
@@ -387,7 +388,7 @@ function chip(slide, x, y, txt, col) {
 (() => {
   const s = pres.addSlide(); s.background = { color: BG };
   titleBar(s, "Chất lượng", "Kiểm thử & Bàn giao");
-  const stats = [["106", "unit tests PASS", GREEN], ["35", "test PRD 2.2", BLUE], ["10", "governance tests", AMBER]];
+  const stats = [["120", "unit tests PASS", GREEN], ["35", "test PRD 2.2", BLUE], ["10", "governance tests", AMBER]];
   stats.forEach(([n, l, c], i) => {
     const x = 0.6 + i * 4.05;
     card(s, x, 1.75, 3.75, 1.7, "FFFFFF");

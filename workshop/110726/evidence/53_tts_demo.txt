@@ -1,0 +1,12 @@
+=== HuggingFace TTS - bang chung synth THAT (offline / CPU) ===
+Model      : facebook/mms-tts-vie  (VITS / MMS-TTS, tieng Viet)
+Thiet bi   : CPU (khong dung GPU)
+Sample rate: 16000 Hz, mono 16-bit PCM
+Cau doc    : "Cảnh báo. Sự cố nghiêm trọng vừa được xác nhận. Vui lòng kiểm tra hệ thống ngay lập tức."
+Do dai     : 6.62 giay  (105984 mau)
+File WAV   : workshop\110726\evidence\tts_alert_vi.wav
+Waveform   : tts_waveform.png
+
+Thoi gian load model: 2.8s  |  synth cau tren: 4.4s
+Offline: sau lan tai model dau tien (cache ~/.cache/huggingface) khong can mang.
+Fallback: neu thieu thu vien/loi -> tu dong chuyen sang beep, khong chan luong rule.

@@ -1,0 +1,196 @@
+{
+  "audit": [
+    {
+      "id": "019f4f9a-dc55-7018-af57-73a296a8b169",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "sos.acknowledge",
+      "detail": "alert=019f4f9a-c7db-78a1-8a9b-d56a32514745 event=019f4f9a-c7d3-76d5-b79a-0854938a1048",
+      "created_at": "2026-07-11T12:16:16",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-dc4b-79cf-a693-58a78fc50d2c",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "review.reject",
+      "detail": "event=EVT-019f4f9a-d45f-7ac9-9de1-0a31ee562c54 ai_review=019f4f9a-d46c-764f-9c61-2e7051ab96a8 rule=ai_draft_denied reason=false positive - expected lockout",
+      "created_at": "2026-07-11T12:16:16",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-dc47-7064-8cd0-3f08023ec50f",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "rule.rejected",
+      "detail": "rule_id=ai_draft_denied AI_SUGGESTED -> REJECTED source=user reason=false positive - expected lockout",
+      "created_at": "2026-07-11T12:16:16",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-d474-7dd7-b579-d1a0cc6cf490",
+      "user_id": null,
+      "action": "ai_review.done",
+      "detail": "event=EVT-019f4f9a-d45f-7ac9-9de1-0a31ee562c54 review=019f4f9a-d46c-764f-9c61-2e7051ab96a8 risk=HIGH action=CREATE_DRAFT_RULE",
+      "created_at": "2026-07-11T12:16:14",
+      "username": null
+    },
+    {
+      "id": "019f4f9a-d46f-7bda-a849-1a7ac0baab8a",
+      "user_id": null,
+      "action": "rule.create",
+      "detail": "rule_id=ai_draft_denied status=AI_SUGGESTED source=ai",
+      "created_at": "2026-07-11T12:16:14",
+      "username": null
+    },
+    {
+      "id": "019f4f9a-d461-75c1-aa33-10292855d83c",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "event.create",
+      "detail": "event=019f4f9a-d45f-7ac9-9de1-0a31ee562c54 source=api",
+      "created_at": "2026-07-11T12:16:14",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-d45a-7d1b-8415-4740e859b320",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "review.approve",
+      "detail": "event=EVT-019f4f9a-c867-7984-8883-c000c75aeca8 ai_review=019f4f9a-c874-7f07-ada7-e395468999d6 rule=ai_draft_critical",
+      "created_at": "2026-07-11T12:16:14",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-d456-74e3-9999-053d5e245655",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "rule.active",
+      "detail": "rule_id=ai_draft_critical AI_SUGGESTED -> ACTIVE source=user",
+      "created_at": "2026-07-11T12:16:14",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c890-75fa-8732-90ca1186ca92",
+      "user_id": null,
+      "action": "ai_review.done",
+      "detail": "event=EVT-019f4f9a-c876-75e1-81f7-ca3acdbc803a review=019f4f9a-c889-7b3c-8649-2f1af95fd355 risk=LOW action=IGNORE",
+      "created_at": "2026-07-11T12:16:11",
+      "username": null
+    },
+    {
+      "id": "019f4f9a-c886-7b74-ac20-350ccc696eba",
+      "user_id": null,
+      "action": "ai_review.done",
+      "detail": "event=EVT-019f4f9a-c867-7984-8883-c000c75aeca8 review=019f4f9a-c874-7f07-ada7-e395468999d6 risk=HIGH action=CREATE_DRAFT_RULE",
+      "created_at": "2026-07-11T12:16:11",
+      "username": null
+    },
+    {
+      "id": "019f4f9a-c87a-70c8-9226-349260324c97",
+      "user_id": null,
+      "action": "rule.create",
+      "detail": "rule_id=ai_draft_critical status=AI_SUGGESTED source=ai",
+      "created_at": "2026-07-11T12:16:11",
+      "username": null
+    },
+    {
+      "id": "019f4f9a-c878-78df-b096-1cc97ea788a2",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "event.create",
+      "detail": "event=019f4f9a-c876-75e1-81f7-ca3acdbc803a source=api",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c869-78a5-ab8f-a41dd036c19c",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "event.create",
+      "detail": "event=019f4f9a-c867-7984-8883-c000c75aeca8 source=api",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c85d-7a60-8888-b0646933bb04",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "event.create",
+      "detail": "event=019f4f9a-c85c-70f6-bec4-ddb162b91ae2 source=api",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c80b-7da2-9f29-c1de75476591",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "event.create",
+      "detail": "event=019f4f9a-c7e5-7f81-b11a-5cb71f73d20b source=api",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c7dd-7e3a-8c73-54c9d03cc78e",
+      "user_id": null,
+      "action": "sos.create",
+      "detail": "alert=019f4f9a-c7db-78a1-8a9b-d56a32514745 event=EVT-019f4f9a-c7d3-76d5-b79a-0854938a1048 rule=payment_declined_incident severity=CRITICAL",
+      "created_at": "2026-07-11T12:16:11",
+      "username": null
+    },
+    {
+      "id": "019f4f9a-c7d5-771b-b48e-e2ce3d1b134e",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "event.create",
+      "detail": "event=019f4f9a-c7d3-76d5-b79a-0854938a1048 source=api",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c7cd-7c82-9e70-5555a935d36d",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "rule.create",
+      "detail": "rule_id=payment_declined_incident status=ACTIVE source=user",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c7ab-7543-87dd-b66884eb310b",
+      "user_id": "019f4f9a-c74d-73c5-8aa7-4b8e8eff1a96",
+      "action": "login",
+      "detail": "role=viewer",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "vera"
+    },
+    {
+      "id": "019f4f9a-c77d-7662-af23-263968fc7be6",
+      "user_id": "019f4f9a-c6e0-72af-8651-c9ef347b7dfc",
+      "action": "login",
+      "detail": "role=operator",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "oscar"
+    },
+    {
+      "id": "019f4f9a-c750-78d9-b281-a0d1a4749117",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "user.create",
+      "detail": "username=vera role=viewer",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c71e-77b3-91e8-5cadf8eb556c",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "user.create",
+      "detail": "username=oscar role=operator",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c67d-7040-bc02-ebadf369d1f6",
+      "user_id": "019f4f9a-c1fb-7ee7-a0db-92afbc3c1bb8",
+      "action": "login",
+      "detail": "role=admin",
+      "created_at": "2026-07-11T12:16:11",
+      "username": "admin"
+    },
+    {
+      "id": "019f4f9a-c243-7637-a08d-da9ba853ff14",
+      "user_id": null,
+      "action": "rule.yaml_sync",
+      "detail": "imported 3 YAML rule(s) into rules_db",
+      "created_at": "2026-07-11T12:16:10",
+      "username": null
+    }
+  ]
+}

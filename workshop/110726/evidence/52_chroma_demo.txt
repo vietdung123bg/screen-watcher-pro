@@ -1,0 +1,25 @@
+=== DEMO ChromaDB - nhan biet su co 'MOI' vs 'DA TUNG GAP' ===
+(nguong giong nhau >= 78% thi coi la cung mot van de)
+
+- Lan dau thay loi thanh toan
+    input : Payment declined for order #10293 - fraud on card 44
+    ket qua: [MOI]     su co lan dau  (xuat hien lan thu 1)
+
+- Loi thanh toan TUONG TU lan truoc
+    input : Payment declined for order #55019 - fraud suspected
+    ket qua: [DA GAP]  giong 94% mot su co truoc  (xuat hien lan thu 2)
+
+- Loi ha tang KHAC HAN
+    input : ERROR: disk full 98% on node db-02, service degraded
+    ket qua: [MOI]     su co lan dau  (xuat hien lan thu 1)
+
+- Lai la loi thanh toan
+    input : Payment declined for order #77123 - chargeback fraud
+    ket qua: [DA GAP]  giong 96% mot su co truoc  (xuat hien lan thu 3)
+
+- Loi ha tang MOI (Kafka)
+    input : Kafka broker CRITICAL unavailable, consumer lag spik
+    ket qua: [MOI]     su co lan dau  (xuat hien lan thu 1)
+
+=> 5 canh bao dua vao, ChromaDB gom con 3 su co DUY NHAT.
+   Nghia la doi truc/nguoi van hanh khong bi spam nhieu lan cho cung 1 van de.

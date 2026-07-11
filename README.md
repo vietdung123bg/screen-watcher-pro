@@ -912,5 +912,6 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
   different, persistence, back-fill, SQLite mirror (tự skip nếu thiếu `chromadb`).
 - [tests/test_voice_alert_hf.py](tests/test_voice_alert_hf.py) — routing + fallback
   (không cần ML), WAV PCM hợp lệ; bản synth thật chạy khi `SW_TTS_REAL=1`.
-- Bằng chứng synth thật: `workshop/evidence/tts_mms_vie_sample.wav`
-  (3.25s @ 16 kHz, đọc tiếng Việt, dựng trên CPU).
+- Bằng chứng synth thật: `workshop/110726/evidence/tts_alert_vi.wav`
+  (~6s @ 16 kHz, đọc tiếng Việt, dựng trên CPU — VITS có random duration nên
+  số giây dao động nhẹ mỗi lần chạy) — chạy lại với `run.cmd evidence`.
